@@ -1,0 +1,187 @@
+version: '3.8'
+
+services:
+  # Email MCP Server
+  govbiz-email-mcp:
+    build:
+      context: ./govbiz-email-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-email-mcp
+    environment:
+      - EMAIL_USERNAME=${EMAIL_USERNAME}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - IMAP_HOST=${IMAP_HOST:-imap.gmail.com}
+      - IMAP_PORT=${IMAP_PORT:-993}
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # SAM.gov MCP Server
+  govbiz-sam-mcp:
+    build:
+      context: ./govbiz-sam-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-sam-mcp
+    environment:
+      - SAM_API_KEY=${SAM_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Document Generation MCP Server
+  govbiz-docgen-mcp:
+    build:
+      context: ./govbiz-docgen-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-docgen-mcp
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Search & Analysis MCP Server
+  govbiz-search-mcp:
+    build:
+      context: ./govbiz-search-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-search-mcp
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Slack Integration MCP Server
+  govbiz-slack-mcp:
+    build:
+      context: ./govbiz-slack-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-slack-mcp
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+    ports:
+      - "8000:8000"  # Webhook port
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Database Operations MCP Server
+  govbiz-database-mcp:
+    build:
+      context: ./govbiz-database-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-database-mcp
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # AWS Services MCP Server
+  govbiz-aws-mcp:
+    build:
+      context: ./govbiz-aws-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-aws-mcp
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Relationship Management MCP Server
+  govbiz-crm-mcp:
+    build:
+      context: ./govbiz-crm-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-crm-mcp
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Monitoring & Alerts MCP Server
+  govbiz-monitoring-mcp:
+    build:
+      context: ./govbiz-monitoring-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-monitoring-mcp
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    ports:
+      - "9090:9090"  # Prometheus metrics port
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Prompt Catalog MCP Server
+  govbiz-prompts-mcp:
+    build:
+      context: ./govbiz-prompts-mcp
+      dockerfile: Dockerfile
+    container_name: govbiz-prompts-mcp
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: govbiz-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Prometheus for monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: govbiz-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+  # Grafana for dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: govbiz-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - govbiz-network
+
+networks:
+  govbiz-network:
+    driver: bridge
+
+volumes:
+  grafana-data:
