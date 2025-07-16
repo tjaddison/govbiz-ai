@@ -12,7 +12,6 @@ from typing import Dict, List, Any, Optional, AsyncGenerator
 import boto3
 from botocore.exceptions import ClientError
 
-from ..core.config import config
 from ..utils.logger import get_logger
 from ..models.event import EventType, create_event
 
@@ -23,6 +22,9 @@ class SAMCSVProcessor:
     """Processes SAM.gov CSV data for contract opportunities"""
     
     def __init__(self):
+        # Import config locally to avoid circular imports
+        from ..core.config import config
+        
         self.logger = get_logger("sam_csv_processor")
         self.csv_url = config.agents.sam_csv_url
         self.batch_size = config.agents.csv_processing_batch_size

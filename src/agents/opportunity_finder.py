@@ -13,7 +13,6 @@ import boto3
 from botocore.exceptions import ClientError
 
 from ..core.agent_base import BaseAgent, AgentContext, AgentResult
-from ..core.config import config
 from ..models.opportunity import Opportunity, OpportunityStatus, OpportunityPriority, SetAsideType, OpportunityContact
 from ..models.event import EventType, EventSource, opportunity_discovered
 from ..utils.logger import get_logger
@@ -203,6 +202,9 @@ class OpportunityFinderAgent(BaseAgent):
         super().__init__("opportunity_finder")
         self.csv_processor = SAMCSVProcessor()
         self.matcher = OpportunityMatcher()
+        
+        # Import config locally to avoid circular imports
+        from ..core.config import config
         self.opportunities_table = self._get_dynamodb_table(config.database.opportunities_table)
         
     async def execute(self, task_data: Dict[str, Any], context: Optional[AgentContext] = None) -> AgentResult:
@@ -307,6 +309,9 @@ class OpportunityFinderAgent(BaseAgent):
         """Trigger analysis for a high-priority opportunity"""
         
         try:
+            # Import config locally to avoid circular imports
+            from ..core.config import config
+            
             # Send message to analyzer agent queue
             analyzer_queue = config.get_queue_name("analyzer-queue")
             
@@ -355,6 +360,9 @@ class OpportunityFinderAgent(BaseAgent):
     
     def _get_dynamodb_table(self, table_name: str):
         """Get DynamoDB table resource"""
+        # Import config locally to avoid circular imports
+        from ..core.config import config
+        
         if hasattr(config, 'aws') and hasattr(config.aws, 'dynamodb_endpoint_url'):
             dynamodb = boto3.resource(
                 'dynamodb',

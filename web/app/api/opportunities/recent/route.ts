@@ -116,7 +116,7 @@ async function getRecentOpportunities(limit: number, offset: number) {
       }
     })
     
-    const response = await client.send(command)
+    const response = await dynamoClient.send(command)
     
     if (!response.Items) {
       return []

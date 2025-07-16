@@ -1,0 +1,36 @@
+{
+  "env": {
+    "NEXTAUTH_URL": "https://govbiz-ai-dev.vercel.app",
+    "API_BASE_URL": "https://6y7hinexc0.execute-api.us-east-1.amazonaws.com/dev",
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "NEXTAUTH_URL": "https://govbiz-ai-dev.vercel.app",
+      "NODE_ENV": "production"
+    }
+  },
+  "functions": {
+    "pages/api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/backend/(.*)",
+      "destination": "https://6y7hinexc0.execute-api.us-east-1.amazonaws.com/dev/$1"
+    }
+  ]
+}
