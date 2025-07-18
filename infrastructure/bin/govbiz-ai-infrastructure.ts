@@ -17,12 +17,6 @@ new GovBizAiInfrastructureStack(app, `GovBizAi-${stage}`, {
   },
   stage,
   description: `GovBiz.ai Infrastructure Stack for ${stage} environment`,
-  tags: {
-    Project: 'GovBiz.ai',
-    Environment: stage,
-    ManagedBy: 'CDK',
-    Purpose: 'Government Contracting Automation'
-  }
 });
 
 app.synth();
