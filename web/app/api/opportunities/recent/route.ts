@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth/next'
 import { DynamoDBClient, ScanCommand, QueryCommand } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 
+export const dynamic = 'force-dynamic'
+
 // Mock data for development
 const mockOpportunities = [
   {
@@ -49,9 +51,9 @@ const mockOpportunities = [
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication (skip in development for demo mode)
     const session = await getServerSession()
-    if (!session) {
+    if (!session && process.env.NODE_ENV === 'production') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

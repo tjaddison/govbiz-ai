@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { 
   ChartBarIcon, 
   DocumentTextIcon, 
@@ -43,12 +44,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    // Allow access in demo mode (when no OAuth providers are configured)
+    // Only redirect if we're certain authentication is required and failed
+    if (status === 'unauthenticated' && process.env.NODE_ENV === 'production') {
       router.push('/')
       return
     }
 
-    if (session) {
+    // Load data regardless of session in development (demo mode)
+    if (session || status === 'loading' || process.env.NODE_ENV === 'development') {
       loadDashboardData()
     }
   }, [session, status, router])
@@ -96,9 +100,11 @@ export default function DashboardPage() {
               <span className="text-sm text-gray-600">
                 Welcome, {session.user?.name}
               </span>
-              <img
-                src={session.user?.image || ''}
-                alt={session.user?.name || ''}
+              <Image
+                src={session.user?.image || '/default-avatar.png'}
+                alt={session.user?.name || 'User avatar'}
+                width={32}
+                height={32}
                 className="w-8 h-8 rounded-full"
               />
             </div>
