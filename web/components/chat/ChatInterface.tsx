@@ -2,17 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { Send, Square, RotateCcw, Settings, MessageSquare, Bot, User, AlertTriangle, Zap, Clock } from 'lucide-react'
+import { Bot, FileText, Code, BarChart3, FormInput } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Card } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 
 import { ContextManager } from '@/lib/context/ContextManager'
 import { MessageManager } from '@/lib/messages/MessageManager'
@@ -20,11 +16,12 @@ import { StreamingManager } from '@/lib/streaming/StreamingManager'
 import { CommandParser } from '@/lib/commands/CommandParser'
 import { TokenEstimator } from '@/lib/tokens/TokenEstimator'
 
+// New components
+import Header from '@/components/layout/Header'
+import Sidebar from '@/components/layout/Sidebar'
 import { ChatMessage } from './ChatMessage'
-import { ContextWarning } from './ContextWarning'
-import { ModelSelector } from './ModelSelector'
-import { CommandSuggestions } from './CommandSuggestions'
-import { ContextDashboard } from './ContextDashboard'
+import { InputArea } from './InputArea'
+import { Artifact } from './Artifact'
 import { StreamingIndicator } from './StreamingIndicator'
 
 import type { Message, ContextState, ModelInfo } from '@/types'
@@ -36,11 +33,11 @@ export const ChatInterface: React.FC = () => {
   const { data: session } = useSession()
   const [input, setInput] = useState('')
   const [isLocalStreaming, setIsLocalStreaming] = useState(false)
-  const [showDashboard, setShowDashboard] = useState(false)
-  const [showCommandSuggestions, setShowCommandSuggestions] = useState(false)
-  const [commandSuggestions, setCommandSuggestions] = useState<string[]>([])
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [currentClassification, setCurrentClassification] = useState('UNCLASSIFIED')
+  const [artifacts, setArtifacts] = useState<any[]>([])
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   
@@ -86,34 +83,12 @@ export const ChatInterface: React.FC = () => {
     scrollToBottom()
   }, [messages, streamingState, scrollToBottom])
 
-  // Handle input changes and command detection
-  const handleInputChange = useCallback((value: string) => {
-    setInput(value)
-    
-    // Check for commands
-    if (value.startsWith('/')) {
-      const suggestions = commandParser.getSuggestions(value)
-      setCommandSuggestions(suggestions)
-      setShowCommandSuggestions(suggestions.length > 0)
-    } else {
-      setShowCommandSuggestions(false)
-    }
-  }, [commandParser])
-
-  // Handle command selection
-  const handleCommandSelect = useCallback((command: string) => {
-    setInput(command + ' ')
-    setShowCommandSuggestions(false)
-    textareaRef.current?.focus()
-  }, [])
-
   // Send message
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isStreaming()) return
 
     const messageContent = input.trim()
     setInput('')
-    setShowCommandSuggestions(false)
 
     // Check if it's a command
     if (messageContent.startsWith('/')) {
@@ -143,12 +118,6 @@ export const ChatInterface: React.FC = () => {
           })
         }
         
-        // Handle special data in result if needed
-        if (result.data) {
-          // Process any data returned by the command
-          console.log('Command data:', result.data)
-        }
-        
         return
       } catch (error) {
         toast.error('Command execution failed: ' + (error instanceof Error ? error.message : 'Unknown error'))
@@ -169,9 +138,6 @@ export const ChatInterface: React.FC = () => {
 
     // Check context state
     const currentContextState = contextManager.analyzeContext()
-    
-    // Log context analysis for debugging
-    console.log('Context analysis:', currentContextState)
 
     // Start streaming response
     setIsLocalStreaming(true)
@@ -189,7 +155,9 @@ export const ChatInterface: React.FC = () => {
           messages: [...messages, userMessage],
           model: currentModel,
           stream: true,
-          context: currentContextState
+          context: currentContextState,
+          classification: currentClassification,
+          attachedFiles: attachedFiles.map(f => ({ name: f.name, type: f.type, size: f.size }))
         }),
         signal: abortControllerRef.current.signal
       })
@@ -231,11 +199,15 @@ export const ChatInterface: React.FC = () => {
                 if (parsed.choices?.[0]?.delta?.content) {
                   const content = parsed.choices[0].delta.content
                   accumulatedContent += content
-                  // Update streaming content through store
                   const currentMsgId = getCurrentMessageId()
                   if (currentMsgId) {
                     updateStreamingToken(currentMsgId, content)
                   }
+                }
+                
+                // Handle artifacts if present
+                if (parsed.artifact) {
+                  setArtifacts(prev => [...prev, parsed.artifact])
                 }
               } catch (parseError) {
                 console.warn('Failed to parse streaming data:', parseError)
@@ -267,7 +239,6 @@ export const ChatInterface: React.FC = () => {
         console.error('Chat error:', error)
         toast.error('Failed to send message: ' + (error instanceof Error ? error.message : 'Unknown error'))
         
-        // Add error message
         const errorContent = 'Sorry, I encountered an error while processing your request. Please try again.'
         addMessage({
           id: (Date.now() + 3).toString(),
@@ -296,7 +267,9 @@ export const ChatInterface: React.FC = () => {
     getCurrentMessageId,
     messageManager,
     session,
-    updateStreamingToken
+    updateStreamingToken,
+    currentClassification,
+    attachedFiles
   ])
 
   // Stop generation
@@ -310,318 +283,191 @@ export const ChatInterface: React.FC = () => {
   const clearContext = useCallback(() => {
     clearMessages()
     contextManager.clearContext()
+    setArtifacts([])
+    setAttachedFiles([])
     toast.success('Context cleared')
   }, [clearMessages, contextManager])
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case 'Enter':
-            e.preventDefault()
-            if (!isStreaming()) sendMessage()
-            break
-          case 'k':
-            e.preventDefault()
-            clearContext()
-            break
-          case 'd':
-            e.preventDefault()
-            setShowDashboard(!showDashboard)
-            break
-        }
-      }
-    }
-    
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sendMessage, isStreaming, clearContext, showDashboard])
+  // Handle new chat
+  const handleNewChat = useCallback(() => {
+    clearContext()
+  }, [clearContext])
 
-  // Handle textarea resize
-  const handleTextareaResize = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px'
-    }
+  // Handle file attachment
+  const handleFileAttachment = useCallback((files: File[]) => {
+    setAttachedFiles(prev => [...prev, ...files])
   }, [])
 
-  useEffect(() => {
-    handleTextareaResize()
-  }, [input, handleTextareaResize])
-
-  const [tokenCount, setTokenCount] = useState(0)
-  
-  // Update token count when input changes
-  useEffect(() => {
-    if (input.trim()) {
-      tokenEstimator.estimate(input).then(setTokenCount)
-    } else {
-      setTokenCount(0)
-    }
-  }, [input, tokenEstimator])
   // Calculate total tokens from messages
   const totalTokens = messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
-  const contextInfo = { totalTokens }
+
+  const hasArtifacts = artifacts.length > 0
 
   return (
-    <TooltipProvider>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="main-layout">
+      {/* Header */}
+      <Header
+        onMenuToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isSidebarCollapsed={isSidebarCollapsed}
+        currentPath="/chat"
+        securityClassification={currentClassification as any}
+      />
+
+      {/* Main Content */}
+      <div className="chat-container" style={{ height: 'calc(100vh - 64px)' }}>
         {/* Sidebar */}
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-          {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bot className="h-6 w-6 text-blue-600" />
-                <span className="font-semibold text-lg">GovBiz.AI</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowDashboard(!showDashboard)}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Toggle Dashboard (Ctrl+D)</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearContext}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Clear Context (Ctrl+K)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-            
-            {/* Model Selector */}
-            <div className="mt-4">
-              <ModelSelector
-                currentModel={currentModel}
-                availableModels={availableModels}
-                onModelChange={(modelId: string) => {
-                  const model = getModel(modelId)
-                  if (model) setCurrentModel(model)
-                }}
-              />
-            </div>
-          </div>
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          onNewChat={handleNewChat}
+          currentConversationId={messages.length > 0 ? '1' : undefined}
+        />
 
-          {/* Context Information */}
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Messages</span>
-              <Badge variant="secondary">{messages.length}</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Tokens</span>
-              <Badge 
-                variant={contextInfo.totalTokens > 4000 ? "destructive" : "secondary"}
-              >
-                {contextInfo.totalTokens.toLocaleString()}
-              </Badge>
-            </div>
-            
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400">Model</span>
-              <Badge variant="outline">{currentModel?.name || 'Unknown'}</Badge>
-            </div>
-
-          </div>
-
-          <Separator />
-
-          {/* Keyboard Shortcuts */}
-          <div className="p-4 space-y-2">
-            <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-              Keyboard Shortcuts
-            </div>
-            <div className="space-y-1 text-xs text-gray-500 dark:text-gray-500">
-              <div className="flex justify-between">
-                <span>Send message</span>
-                <span>Ctrl+Enter</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Clear context</span>
-                <span>Ctrl+K</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Toggle dashboard</span>
-                <span>Ctrl+D</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Messages */}
-          <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full p-6">
-              <div className="space-y-6 max-w-4xl mx-auto">
-                {messages.length === 0 && (
-                  <div className="text-center py-12">
-                    <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Welcome to GovBiz.AI
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                      Start a conversation to get help with government contracting,
-                      sources sought opportunities, and proposal writing.
-                    </p>
-                    <div className="mt-6 space-y-2 text-sm text-gray-500 dark:text-gray-500">
-                      <p>Try commands like:</p>
-                      <div className="space-y-1">
-                        <p><code>/search</code> - Find opportunities</p>
-                        <p><code>/analyze</code> - Analyze documents</p>
-                        <p><code>/workflow</code> - Create workflows</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    isStreaming={false}
-                  />
-                ))}
-
-                {streamingState.isStreaming && streamingState.tokens.length > 0 && (
-                  <div className="flex items-start gap-4 group">
-                    <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarFallback>
-                        <Bot className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-sm">Assistant</span>
-                        <StreamingIndicator />
-                      </div>
-                      
-                      <Card className="p-4 bg-gray-50 dark:bg-gray-800">
-                        <div className="prose prose-sm dark:prose-invert max-w-none">
-                          {streamingState.tokens.join('')}
-                          <span className="animate-pulse">█</span>
+        {/* Chat Main Area */}
+        <div className={`chat-main ${hasArtifacts ? 'flex flex-col lg:flex-row' : ''}`}>
+          {/* Messages Column */}
+          <div className={hasArtifacts ? 'flex-1 lg:w-3/5 flex flex-col' : 'flex-1 flex flex-col'}>
+            {/* Messages */}
+            <div className="chat-messages">
+              <ScrollArea className="h-full p-3 sm:p-4 lg:p-6">
+                <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+                  {messages.length === 0 && (
+                    <div className="text-center py-8 sm:py-12">
+                      <Bot className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
+                        Welcome to GovBiz.AI
+                      </h3>
+                      <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto px-4">
+                        Start a conversation to get help with government contracting,
+                        sources sought opportunities, and proposal writing.
+                      </p>
+                      <div className="mt-4 sm:mt-6 space-y-2 text-xs sm:text-sm text-gray-500">
+                        <p className="hidden sm:block">Try commands like:</p>
+                        <div className="space-y-1 hidden sm:block">
+                          <p><code>/search</code> - Find opportunities</p>
+                          <p><code>/analyze</code> - Analyze documents</p>
+                          <p><code>/workflow</code> - Create workflows</p>
                         </div>
-                      </Card>
+                      </div>
                     </div>
+                  )}
+
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`${
+                        message.role === 'user' 
+                          ? 'message-user' 
+                          : message.role === 'assistant'
+                          ? 'message-assistant'
+                          : 'message-system'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2 sm:gap-4">
+                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
+                          <AvatarFallback className="text-xs sm:text-sm">
+                            {message.role === 'user' ? (
+                              session?.user?.name?.charAt(0)?.toUpperCase() || 'U'
+                            ) : (
+                              <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                            <span className="font-medium text-xs sm:text-sm">
+                              {message.role === 'user' ? (session?.user?.name || 'You') : 'Assistant'}
+                            </span>
+                            <span className="text-xs text-gray-500 hidden sm:inline">
+                              {new Date(message.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          
+                          <div className="message-content">
+                            <div className="prose prose-xs sm:prose-sm max-w-none">
+                              {message.content}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {streamingState.isStreaming && streamingState.tokens.length > 0 && (
+                    <div className="message-assistant">
+                      <div className="flex items-start gap-2 sm:gap-4">
+                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
+                          <AvatarFallback className="text-xs sm:text-sm">
+                            <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                            <span className="font-medium text-xs sm:text-sm">Assistant</span>
+                            <StreamingIndicator />
+                          </div>
+                          
+                          <div className="message-content">
+                            <div className="prose prose-xs sm:prose-sm max-w-none">
+                              {streamingState.tokens.join('')}
+                              <span className="animate-pulse">█</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* Input Area */}
+            <InputArea
+              value={input}
+              onChange={setInput}
+              onSend={sendMessage}
+              onAttachment={handleFileAttachment}
+              onClassificationChange={setCurrentClassification}
+              disabled={false}
+              isStreaming={isStreaming()}
+              onStopStreaming={stopGeneration}
+              tokenCount={totalTokens}
+              maxTokens={200000}
+            />
+          </div>
+
+          {/* Artifacts Column */}
+          {hasArtifacts && (
+            <div className="w-full lg:w-2/5 mt-4 lg:mt-0 border-t lg:border-t-0 lg:border-l border-gray-200 bg-white">
+              <div className="h-full flex flex-col">
+                <div className="p-3 sm:p-4 border-b border-gray-200">
+                  <h3 className="font-medium text-sm sm:text-base text-gray-900">Generated Artifacts</h3>
+                  <p className="text-xs sm:text-sm text-gray-500">
+                    {artifacts.length} item{artifacts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                
+                <ScrollArea className="flex-1 p-3 sm:p-4">
+                  <div className="space-y-3 sm:space-y-4">
+                    {artifacts.map((artifact, index) => (
+                      <Artifact
+                        key={artifact.id || index}
+                        {...artifact}
+                        className="mb-3 sm:mb-4"
+                      />
+                    ))}
                   </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Input Area */}
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="p-6 max-w-4xl mx-auto">
-              {/* Command Suggestions */}
-              {showCommandSuggestions && (
-                <div className="mb-4">
-                  <CommandSuggestions
-                    suggestions={commandSuggestions}
-                    onSelect={handleCommandSelect}
-                  />
-                </div>
-              )}
-
-              <div className="relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                      e.preventDefault()
-                      sendMessage()
-                    }
-                  }}
-                  placeholder="Ask about government contracting, sources sought, or anything else..."
-                  className="min-h-[60px] max-h-[200px] resize-none pr-24"
-                  disabled={isStreaming()}
-                />
-
-                <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                  {tokenCount > 0 && (
-                    <Badge 
-                      variant={tokenCount > 1000 ? "destructive" : "secondary"}
-                      className="text-xs"
-                    >
-                      {tokenCount}
-                    </Badge>
-                  )}
-
-                  {isStreaming() ? (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={stopGeneration}
-                    >
-                      <Square className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={sendMessage}
-                      disabled={!input.trim()}
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-500">
-                <span>
-                  Press Ctrl+Enter to send
-                </span>
-                <span>
-                  {messages.length} messages • {contextInfo.totalTokens} tokens
-                </span>
+                </ScrollArea>
               </div>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Dashboard Overlay */}
-        {showDashboard && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
-              <ContextDashboard 
-                contextState={contextState}
-                messages={messages}
-                onAction={(action: string, data?: any) => {
-                  console.log('Dashboard action:', action, data)
-                  // Handle dashboard actions here
-                }}
-                onClose={() => setShowDashboard(false)}
-              />
-            </div>
-          </div>
-        )}
       </div>
-    </TooltipProvider>
+    </div>
   )
 }
 

@@ -1,63 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { securityFramework } from './lib/security/SecurityFramework'
-
-// Routes that require enhanced security
-const PROTECTED_API_ROUTES = [
-  '/api/messages',
-  '/api/conversations',
-  '/api/chat',
-  '/api/models'
-]
-
-// Public routes that don't require authentication
-const PUBLIC_ROUTES = [
-  '/api/auth',
-  '/api/health',
-  '/',
-  '/auth'
-]
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  
-  try {
-    // Skip security checks for public routes
-    if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
-      return addSecurityHeaders(NextResponse.next())
-    }
-    
-    // Apply security framework validation for protected API routes
-    if (PROTECTED_API_ROUTES.some(route => pathname.startsWith(route))) {
-      const securityResult = await securityFramework.validateRequest(request)
-      
-      if (!securityResult.allowed) {
-        return new NextResponse(
-          JSON.stringify({
-            error: 'Security validation failed',
-            reason: securityResult.reason,
-            timestamp: new Date().toISOString()
-          }),
-          {
-            status: 403,
-            headers: {
-              'Content-Type': 'application/json',
-              ...getSecurityHeaders()
-            }
-          }
-        )
-      }
-    }
-    
-    // Continue with request and add security headers
-    return addSecurityHeaders(NextResponse.next())
-    
-  } catch (error) {
-    console.error('Middleware security error:', error)
-    
-    // Log security error but allow request to continue
-    // In production, you might want to block the request
-    return addSecurityHeaders(NextResponse.next())
-  }
+  // Simplified middleware - just add basic security headers
+  return addSecurityHeaders(NextResponse.next())
 }
 
 function addSecurityHeaders(response: NextResponse): NextResponse {

@@ -1,227 +1,210 @@
 'use client'
 
-import { useSession, signIn, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import { Loader2, Bot, Shield, Zap, Brain, Users, Building2 } from 'lucide-react'
+import { useSession, signIn } from 'next-auth/react'
+import { useEffect, useState } from 'react'
+import { Loader2, Bot, Shield, Zap, Brain } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-
 import { ChatInterface } from '@/components/chat/ChatInterface'
 
 export default function HomePage() {
   const { data: session, status } = useSession()
-  const router = useRouter()
+  const [loadingTimeout, setLoadingTimeout] = useState(false)
+
+  // Add timeout for loading state
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (status === 'loading') {
+        setLoadingTimeout(true)
+      }
+    }, 5000) // 5 seconds timeout
+
+    return () => clearTimeout(timer)
+  }, [status])
 
   // If user is authenticated, show the chat interface
   if (status === 'authenticated' && session) {
     return <ChatInterface />
   }
 
-  // If still loading, show loading state
-  if (status === 'loading') {
+  // If still loading and not timed out, show loading state
+  if (status === 'loading' && !loadingTimeout) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-lg">Loading...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-gray-600" />
+          <span className="text-lg text-gray-600">Loading...</span>
         </div>
       </div>
     )
   }
 
+  // If loading timed out, show landing page with debug info
+  if (loadingTimeout) {
+    console.log('NextAuth loading timeout - showing landing page')
+  }
+
   // If not authenticated, show landing page
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="h-8 w-8 text-blue-500" />
-              <span className="text-2xl font-bold text-white">GovBiz.AI</span>
-              <Badge variant="secondary" className="ml-2">
-                Beta
-              </Badge>
+      <header className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                <Bot className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xl font-semibold text-gray-900">GovBiz.AI</span>
             </div>
             <Button
               onClick={() => signIn('google')}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-gray-900 hover:bg-gray-800 text-white border-0 rounded-lg px-4 py-2 text-sm font-medium"
             >
-              Sign In with Google
+              Sign in
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold text-white mb-6">
-            Government Contracting
-            <span className="text-blue-400 block">Intelligence Platform</span>
+        <div className="text-center pt-20 pb-16">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            AI for Government 
+            <br />
+            Contracting
           </h1>
-          <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-            Advanced AI-powered platform for government contracting opportunities, 
-            sources sought automation, and intelligent proposal generation.
+          
+          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
+            Automate Sources Sought responses, generate proposals, and build 
+            winning relationships with AI-powered government contracting intelligence.
           </p>
-          <Button
-            onClick={() => signIn('google')}
-            size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-4"
-          >
-            Get Started with Claude-like AI
-          </Button>
-        </div>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Brain className="h-5 w-5 text-blue-400" />
-                Claude-like AI Chat
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Sophisticated AI interface with 200K+ token context management
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-slate-300">
-                <li>• Real-time streaming responses</li>
-                <li>• Intelligent context compression</li>
-                <li>• Advanced slash commands</li>
-                <li>• Multi-model support</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Shield className="h-5 w-5 text-green-400" />
-                Sources Sought Automation
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Automated discovery and response generation for government RFIs
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-slate-300">
-                <li>• SAM.gov monitoring</li>
-                <li>• Automated response generation</li>
-                <li>• Compliance checking</li>
-                <li>• Relationship tracking</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Zap className="h-5 w-5 text-yellow-400" />
-                Government-Grade Security
-              </CardTitle>
-              <CardDescription className="text-slate-300">
-                Enterprise security with compliance and audit trails
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-slate-300">
-                <li>• Multi-factor authentication</li>
-                <li>• Role-based access control</li>
-                <li>• Audit logging</li>
-                <li>• Data classification</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Technical Features */}
-        <div className="mb-16">
-          <h2 className="text-4xl font-bold text-white text-center mb-8">
-            Built on Advanced AI Technology
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">Context Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-slate-300">
-                  <div className="flex items-center justify-between">
-                    <span>Token Window</span>
-                    <Badge variant="secondary">200K+</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Compression Strategies</span>
-                    <Badge variant="secondary">4 Types</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Real-time Warnings</span>
-                    <Badge variant="secondary">Proactive</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">AI Capabilities</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-slate-300">
-                  <div className="flex items-center justify-between">
-                    <span>Models Supported</span>
-                    <Badge variant="secondary">Claude 4</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Streaming Response</span>
-                    <Badge variant="secondary">Real-time</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Command System</span>
-                    <Badge variant="secondary">Advanced</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20">
+            <Button
+              onClick={() => signIn('google')}
+              className="bg-orange-500 hover:bg-orange-600 text-white border-0 rounded-lg px-6 py-3 text-base font-medium"
+            >
+              Try GovBiz.AI
+            </Button>
+            <Button
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg px-6 py-3 text-base font-medium"
+            >
+              Learn more
+            </Button>
           </div>
         </div>
 
-        {/* Call to Action */}
-        <div className="text-center bg-slate-800/50 rounded-lg p-12 border border-slate-700">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to Transform Your Government Contracting?
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Brain className="h-6 w-6 text-orange-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Claude-like AI Chat</h3>
+            <p className="text-gray-600">
+              Sophisticated AI interface with 200K+ token context management and real-time streaming.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-6 w-6 text-blue-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Sources Sought Automation</h3>
+            <p className="text-gray-600">
+              Automated discovery and response generation for government RFIs with compliance checking.
+            </p>
+          </div>
+
+          <div className="text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Zap className="h-6 w-6 text-green-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Enterprise Security</h3>
+            <p className="text-gray-600">
+              Government-grade security with multi-factor authentication and audit trails.
+            </p>
+          </div>
+        </div>
+
+        {/* How it works */}
+        <div className="text-center mb-20">
+          <h2 className="text-3xl font-bold text-gray-900 mb-12">How it works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-1">
+                  1
+                </div>
+                <div className="text-left">
+                  <h4 className="font-semibold text-gray-900 mb-1">Monitor Sources Sought</h4>
+                  <p className="text-gray-600">AI continuously monitors SAM.gov for new Sources Sought opportunities matching your capabilities.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-1">
+                  2
+                </div>
+                <div className="text-left">
+                  <h4 className="font-semibold text-gray-900 mb-1">Generate Responses</h4>
+                  <p className="text-gray-600">Smart AI generates tailored responses highlighting your strengths and past performance.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-1">
+                  3
+                </div>
+                <div className="text-left">
+                  <h4 className="font-semibold text-gray-900 mb-1">Build Relationships</h4>
+                  <p className="text-gray-600">Track government contacts and nurture relationships that lead to contract awards.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-8 h-64 flex items-center justify-center">
+              <div className="text-gray-400 text-center">
+                <Bot className="h-16 w-16 mx-auto mb-4" />
+                <p>Interactive demo coming soon</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="text-center bg-gray-50 rounded-2xl p-12 mb-16">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Ready to win more government contracts?
           </h2>
-          <p className="text-slate-300 mb-8 max-w-2xl mx-auto">
-            Join the future of government contracting with our AI-powered platform. 
-            Start automating your sources sought responses today.
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Join contractors using AI to automate Sources Sought responses and build winning relationships.
           </p>
           <Button
             onClick={() => signIn('google')}
-            size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-lg px-8 py-4"
+            className="bg-orange-500 hover:bg-orange-600 text-white border-0 rounded-lg px-8 py-4 text-lg font-medium"
           >
-            Get Started Now
+            Get started for free
           </Button>
         </div>
-      </main>
+      </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="h-6 w-6 text-blue-500" />
-              <span className="text-lg font-semibold text-white">GovBiz.AI</span>
+      <footer className="border-t border-gray-200 mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                <Bot className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xl font-semibold text-gray-900">GovBiz.AI</span>
             </div>
-            <div className="text-slate-400 text-sm">
-              © 2024 GovBiz.AI. All rights reserved.
+            <div className="text-gray-600 text-sm text-center md:text-right">
+              <p>© 2024 GovBiz.AI. Transforming government contracting with AI.</p>
             </div>
           </div>
         </div>

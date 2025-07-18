@@ -10,10 +10,17 @@ module.exports = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1rem",
       screens: {
-        "2xl": "1400px",
+        "2xl": "1200px",
       },
+    },
+    screens: {
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
     },
     extend: {
       colors: {
@@ -50,24 +57,69 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Brand colors for government contracting theme
-        brand: {
+        // Government standard color palette
+        'gov-primary': '#1e40af', // Primary Blue
+        'gov-secondary': '#1e3a8a', // Secondary Navy
+        'gov-success': '#059669', // Success Green
+        'gov-warning': '#d97706', // Warning Orange
+        'gov-error': '#dc2626', // Error Red
+        'gov-neutral': '#6b7280', // Neutral Gray
+        'gov-background': '#f8fafc', // Background
+        'gov-text': '#111827', // Text
+        
+        // Extended government palette
+        blue: {
           50: '#eff6ff',
-          100: '#dbeafe', 
+          100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#60a5fa',
           500: '#3b82f6',
           600: '#2563eb',
           700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          800: '#1e40af', // Primary Blue
+          900: '#1e3a8a', // Secondary Navy
         },
-        // Government/professional color palette
-        gov: {
-          50: '#f8fafc',
+        green: {
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#10b981',
+          600: '#059669', // Success Green
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
+        },
+        orange: {
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
+          700: '#d97706', // Warning Orange
+          800: '#c2410c',
+          900: '#9a3412',
+        },
+        red: {
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626', // Error Red
+          700: '#b91c1c',
+          800: '#991b1b',
+          900: '#7f1d1d',
+        },
+        gray: {
+          50: '#f8fafc', // Background
           100: '#f1f5f9',
-          200: '#e2e8f0', 
+          200: '#e2e8f0',
           300: '#cbd5e1',
           400: '#94a3b8',
           500: '#64748b',
@@ -137,8 +189,29 @@ module.exports = {
         "zoom-out-95": "zoom-out 0.2s ease-out",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "Consolas", "monospace"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["Fira Code", "Monaco", "Consolas", "monospace"],
+      },
+      spacing: {
+        '0': '0px',
+        '1': '0.25rem', // 4px - base unit
+        '2': '0.5rem',  // 8px
+        '3': '0.75rem', // 12px
+        '4': '1rem',    // 16px - component padding
+        '5': '1.25rem', // 20px
+        '6': '1.5rem',  // 24px - section margins
+        '8': '2rem',    // 32px
+        '12': '3rem',   // 48px
+        '16': '4rem',   // 64px - header height
+        '20': '5rem',   // 80px
+        '24': '6rem',   // 96px
+        '32': '8rem',   // 128px
+        '40': '10rem',  // 160px
+        '48': '12rem',  // 192px
+        '56': '14rem',  // 224px
+        '64': '16rem',  // 256px
+        '70': '17.5rem', // 280px - sidebar width
+        '80': '20rem',  // 320px
       },
     },
   },
