@@ -22,9 +22,10 @@ export default function HomePage() {
     return () => clearTimeout(timer)
   }, [status])
 
-  // If user is authenticated, show the chat interface
+  // If user is authenticated, redirect to chat page
   if (status === 'authenticated' && session) {
-    return <ChatInterface />
+    window.location.href = '/chat'
+    return null
   }
 
   // If still loading and not timed out, show loading state

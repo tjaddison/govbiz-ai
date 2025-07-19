@@ -304,167 +304,98 @@ export const ChatInterface: React.FC = () => {
   const hasArtifacts = artifacts.length > 0
 
   return (
-    <div className="main-layout">
-      {/* Header */}
-      <Header
-        onMenuToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        isSidebarCollapsed={isSidebarCollapsed}
-        currentPath="/chat"
-        securityClassification={currentClassification as any}
-      />
-
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      {/* Top Navbar */}
+      <div className="border-b border-gray-700 bg-gray-900 p-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button className="p-2 hover:bg-gray-800 rounded-md">
+              <Plus className="h-4 w-4 text-gray-400" />
+            </button>
+            <div className="text-sm text-gray-400">Claude Sonnet 4</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-gray-400">Write</div>
+            <div className="text-sm text-gray-400">Learn</div>
+            <div className="text-sm text-gray-400">Code</div>
+            <div className="text-sm text-gray-400">Life stuff</div>
+            <div className="text-sm text-gray-400">From your apps</div>
+          </div>
+        </div>
+      </div>
+      
       {/* Main Content */}
-      <div className="chat-container" style={{ height: 'calc(100vh - 64px)' }}>
-        {/* Sidebar */}
-        <Sidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onNewChat={handleNewChat}
-          currentConversationId={messages.length > 0 ? '1' : undefined}
-        />
-
-        {/* Chat Main Area */}
-        <div className={`chat-main ${hasArtifacts ? 'flex flex-col lg:flex-row' : ''}`}>
-          {/* Messages Column */}
-          <div className={hasArtifacts ? 'flex-1 lg:w-3/5 flex flex-col' : 'flex-1 flex flex-col'}>
-            {/* Messages */}
-            <div className="chat-messages">
-              <ScrollArea className="h-full p-3 sm:p-4 lg:p-6">
-                <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
-                  {messages.length === 0 && (
-                    <div className="text-center py-8 sm:py-12">
-                      <Bot className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-                        Welcome to GovBiz.AI
-                      </h3>
-                      <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto px-4">
-                        Start a conversation to get help with government contracting,
-                        sources sought opportunities, and proposal writing.
-                      </p>
-                      <div className="mt-4 sm:mt-6 space-y-2 text-xs sm:text-sm text-gray-500">
-                        <p className="hidden sm:block">Try commands like:</p>
-                        <div className="space-y-1 hidden sm:block">
-                          <p><code>/search</code> - Find opportunities</p>
-                          <p><code>/analyze</code> - Analyze documents</p>
-                          <p><code>/workflow</code> - Create workflows</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`${
-                        message.role === 'user' 
-                          ? 'message-user' 
-                          : message.role === 'assistant'
-                          ? 'message-assistant'
-                          : 'message-system'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 sm:gap-4">
-                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
-                          <AvatarFallback className="text-xs sm:text-sm">
-                            {message.role === 'user' ? (
-                              session?.user?.name?.charAt(0)?.toUpperCase() || 'U'
-                            ) : (
-                              <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                            <span className="font-medium text-xs sm:text-sm">
-                              {message.role === 'user' ? (session?.user?.name || 'You') : 'Assistant'}
-                            </span>
-                            <span className="text-xs text-gray-500 hidden sm:inline">
-                              {new Date(message.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          
-                          <div className="message-content">
-                            <div className="prose prose-xs sm:prose-sm max-w-none">
-                              {message.content}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {streamingState.isStreaming && streamingState.tokens.length > 0 && (
-                    <div className="message-assistant">
-                      <div className="flex items-start gap-2 sm:gap-4">
-                        <Avatar className="h-6 w-6 sm:h-8 sm:w-8 shrink-0">
-                          <AvatarFallback className="text-xs sm:text-sm">
-                            <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                            <span className="font-medium text-xs sm:text-sm">Assistant</span>
-                            <StreamingIndicator />
-                          </div>
-                          
-                          <div className="message-content">
-                            <div className="prose prose-xs sm:prose-sm max-w-none">
-                              {streamingState.tokens.join('')}
-                              <span className="animate-pulse">█</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
+      <div className="flex flex-col" style={{ height: 'calc(100vh - 73px)' }}>
+        {/* Messages */}
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full p-6">
+            {messages.length === 0 && (
+              <div className="h-full flex items-center justify-center" style={{ paddingBottom: '120px' }}>
+                <div className="text-center max-w-2xl mx-auto px-4">
+                  <div className="mb-8">
+                    <span className="text-orange-500 text-4xl mb-4 block">✳️</span>
+                    <h1 className="text-3xl font-light text-gray-200 mb-8">
+                      How was your day, {session?.user?.name?.split(' ')[0] || 'Terrance'}?
+                    </h1>
+                  </div>
                 </div>
-              </ScrollArea>
-            </div>
+              </div>
+            )}
+
+            {/* Messages Display */}
+            {messages.length > 0 && (
+              <div className="max-w-3xl mx-auto space-y-6">
+                {messages.map((message) => (
+                  <div key={message.id} className="flex gap-4">
+                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
+                      {message.role === 'user' ? (
+                        <span className="text-sm font-medium text-gray-200">
+                          {session?.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      ) : (
+                        <span className="text-orange-500">✳️</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-gray-200 whitespace-pre-wrap">
+                        {message.content}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
             {/* Input Area */}
-            <InputArea
-              value={input}
-              onChange={setInput}
-              onSend={sendMessage}
-              onAttachment={handleFileAttachment}
-              onClassificationChange={setCurrentClassification}
-              disabled={false}
-              isStreaming={isStreaming()}
-              onStopStreaming={stopGeneration}
-              tokenCount={totalTokens}
-              maxTokens={200000}
-            />
-          </div>
-
-          {/* Artifacts Column */}
-          {hasArtifacts && (
-            <div className="w-full lg:w-2/5 mt-4 lg:mt-0 border-t lg:border-t-0 lg:border-l border-gray-200 bg-white">
-              <div className="h-full flex flex-col">
-                <div className="p-3 sm:p-4 border-b border-gray-200">
-                  <h3 className="font-medium text-sm sm:text-base text-gray-900">Generated Artifacts</h3>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    {artifacts.length} item{artifacts.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                
-                <ScrollArea className="flex-1 p-3 sm:p-4">
-                  <div className="space-y-3 sm:space-y-4">
-                    {artifacts.map((artifact, index) => (
-                      <Artifact
-                        key={artifact.id || index}
-                        {...artifact}
-                        className="mb-3 sm:mb-4"
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
+        <div className="border-t border-gray-700 bg-gray-900 p-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage()
+                  }
+                }}
+                placeholder="How can I help you today?"
+                className="w-full bg-gray-800 border border-gray-600 rounded-lg p-4 pr-12 text-gray-100 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                rows={1}
+                style={{ minHeight: '56px', maxHeight: '200px' }}
+                disabled={isStreaming()}
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!input.trim() || isStreaming()}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="h-4 w-4 text-gray-400" />
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
