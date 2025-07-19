@@ -146,7 +146,7 @@ export const ChatInterface: React.FC = () => {
     abortControllerRef.current = new AbortController()
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,26 +189,22 @@ export const ChatInterface: React.FC = () => {
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
               
-              if (data === '[DONE]') {
-                break
-              }
-
               try {
                 const parsed = JSON.parse(data)
                 
-                if (parsed.choices?.[0]?.delta?.content) {
-                  const content = parsed.choices[0].delta.content
+                if (parsed.type === 'token' && parsed.content) {
+                  const content = parsed.content
                   accumulatedContent += content
                   const currentMsgId = getCurrentMessageId()
                   if (currentMsgId) {
                     updateStreamingToken(currentMsgId, content)
                   }
+                } else if (parsed.type === 'done') {
+                  break
+                } else if (parsed.type === 'error') {
+                  throw new Error(parsed.message || 'Streaming error')
                 }
                 
-                // Handle artifacts if present
-                if (parsed.artifact) {
-                  setArtifacts(prev => [...prev, parsed.artifact])
-                }
               } catch (parseError) {
                 console.warn('Failed to parse streaming data:', parseError)
               }
