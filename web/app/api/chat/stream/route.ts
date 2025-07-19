@@ -94,8 +94,16 @@ async function generateStreamingResponse(messages: any[], model: string): Promis
   // Generate a contextual response based on the user input
   const responseText = generateContextualResponse(userContent, messages)
   
-  // Split response into tokens (words and punctuation)
-  const tokens = responseText.split(/(\s+|[.!?,:;])/).filter(token => token.trim())
+  // Split response into tokens while preserving formatting
+  const words = responseText.split(' ')
+  const tokens: string[] = []
+  
+  words.forEach((word, index) => {
+    tokens.push(word)
+    if (index < words.length - 1) {
+      tokens.push(' ')
+    }
+  })
   
   return tokens
 }

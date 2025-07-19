@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { Bot, FileText, Code, BarChart3, FormInput, Plus, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import ReactMarkdown from 'react-markdown'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -353,8 +354,8 @@ export const ChatInterface: React.FC = () => {
                       )}
                     </div>
                     <div className="flex-1">
-                      <div className="text-gray-200 whitespace-pre-wrap">
-                        {message.content}
+                      <div className="text-gray-200 leading-relaxed prose prose-invert max-w-none">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
                       </div>
                     </div>
                   </div>
