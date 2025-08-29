@@ -1,4 +1,0 @@
-# Basic dependencies for Lambda functions
-boto3
-requests
-python-dotenv
