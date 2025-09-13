@@ -11,6 +11,7 @@
 - Maintain ultra-low operational costs ($435-$535/month target)
 - Provide transparency through explainable matching scores and recommendations
 - Prefix and tag ALL provisioned AWS resources with "govbizai" to ensure unique naming for resources required by this solution
+- DO NOT MOCK OR CREATE PLACEHOLDERS.  ONLY GENERATE PRODUCTION READY CODE.
 
 #### 1.2 High-Level Architecture Components
 - **Document Ingestion Pipeline**: Scheduled crawlers, parsers, normalizers
