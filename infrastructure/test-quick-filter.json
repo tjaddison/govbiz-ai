@@ -1,0 +1,24 @@
+{
+  "opportunity": {
+    "notice_id": "TEST001",
+    "set_aside": "8(a)",
+    "location": {
+      "state": "VA",
+      "country": "US"
+    },
+    "naics_code": "541511",
+    "response_deadline": "2024-05-15"
+  },
+  "company": {
+    "company_id": "COMP001",
+    "certifications": ["8(a)", "WOSB"],
+    "naics_codes": ["541511", "541512"],
+    "locations": [
+      {
+        "state": "VA",
+        "country": "US"
+      }
+    ],
+    "active": true
+  }
+}

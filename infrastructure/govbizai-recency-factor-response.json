@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": "{\"recency_score\": {\"score\": 0.7, \"overall_score\": 0.7, \"recent_work_count\": 0, \"processing_time_ms\": 2.0}, \"component\": \"recency_factor\", \"weight\": 0.05, \"timestamp\": 1757772724}"}

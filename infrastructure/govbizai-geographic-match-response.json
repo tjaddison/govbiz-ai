@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": "{\"geographic_score\": {\"score\": 0.4, \"overall_score\": 0.4, \"opportunity_state\": \"VA\", \"company_state\": \"\", \"processing_time_ms\": 2.0}, \"component\": \"geographic_match\", \"weight\": 0.05, \"timestamp\": 1757772720}"}

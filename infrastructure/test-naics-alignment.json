@@ -1,0 +1,10 @@
+{
+  "opportunity": {
+    "notice_id": "TEST003",
+    "NaicsCode": "541511"
+  },
+  "company_profile": {
+    "company_id": "COMP003",
+    "naics_codes": ["541511", "541512", "518210"]
+  }
+}

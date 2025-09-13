@@ -1,0 +1,18 @@
+{
+  "opportunity": {
+    "notice_id": "TEST002",
+    "title": "Cybersecurity Consulting Services",
+    "description": "The Department of Defense requires cybersecurity consulting services for cloud infrastructure including AWS migration, DevOps automation, and security compliance.",
+    "NaicsCode": "541511",
+    "SetASide": "Total Small Business",
+    "Sol#": "TEST-SOL-002",
+    "Office": "Department of Defense"
+  },
+  "company_profile": {
+    "company_id": "COMP002",
+    "company_name": "CyberSecure Solutions",
+    "capability_statement": "We provide cybersecurity consulting, AWS cloud services, DevOps automation, cloud migration, and security compliance services to government agencies.",
+    "naics_codes": ["541511", "541512"],
+    "certifications": ["8(a)", "WOSB"]
+  }
+}

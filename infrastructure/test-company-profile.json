@@ -1,0 +1,23 @@
+{
+  "company_name": "Tech Solutions Inc.",
+  "tenant_id": "test-tenant-123",
+  "company_id": "company-456",
+  "duns_number": "123456789",
+  "cage_code": "ABC12",
+  "website_url": "https://techsolutions.com",
+  "naics_codes": ["541511", "541512"],
+  "certifications": ["8(a)", "WOSB"],
+  "revenue_range": "5m-10m",
+  "employee_count": "51-100",
+  "primary_contact_name": "John Smith",
+  "primary_contact_email": "john@techsolutions.com",
+  "primary_contact_phone": "555-123-4567",
+  "locations": [
+    {
+      "city": "Washington",
+      "state": "DC",
+      "zip_code": "20001"
+    }
+  ],
+  "capability_statement": "We provide innovative technology solutions for government agencies, specializing in cloud infrastructure, cybersecurity, and digital transformation."
+}

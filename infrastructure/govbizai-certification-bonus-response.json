@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": "{\"certification_score\": {\"score\": 1.0, \"overall_score\": 1.0, \"matched_certifications\": [\"8(A)\", \"WOSB\"], \"processing_time_ms\": 3.0}, \"component\": \"certification_bonus\", \"weight\": 0.1, \"timestamp\": 1757772718}"}

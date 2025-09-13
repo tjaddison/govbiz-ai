@@ -1,0 +1,12 @@
+{
+  "body": "{\"website_url\": \"https://example.com\", \"max_pages\": 2, \"max_depth\": 1}",
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "sub": "user-123",
+        "custom:tenant_id": "test-tenant-123",
+        "custom:company_id": "company-456"
+      }
+    }
+  }
+}

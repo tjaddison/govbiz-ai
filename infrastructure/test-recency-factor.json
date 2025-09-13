@@ -1,0 +1,21 @@
+{
+  "opportunity": {
+    "notice_id": "TEST008",
+    "description": "cloud infrastructure services"
+  },
+  "company_profile": {
+    "company_id": "COMP008",
+    "past_performance": [
+      {
+        "title": "AWS Cloud Migration",
+        "completion_date": "2023-11-15",
+        "scope": "cloud infrastructure modernization"
+      },
+      {
+        "title": "Legacy System Upgrade",
+        "completion_date": "2021-06-30",
+        "scope": "infrastructure services"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "opportunity": {
+    "notice_id": "TEST001",
+    "posted_date": "2024-03-15",
+    "title": "Cloud Infrastructure Services",
+    "description": "The Department of Defense requires cloud infrastructure services including AWS services, data migration, and cybersecurity implementation.",
+    "NaicsCode": "541511",
+    "SetASide": "8(a)",
+    "Sol#": "TEST-SOL-001",
+    "Office": "Department of Defense"
+  },
+  "company_profile": {
+    "company_id": "COMP001",
+    "tenant_id": "TEST-TENANT",
+    "company_name": "TechSolutions Inc",
+    "naics_codes": ["541511", "541512"],
+    "certifications": ["8(a)", "WOSB"],
+    "capability_statement": "We specialize in AWS cloud services implementation, data center migration, cybersecurity consulting, and DevOps automation for government agencies."
+  }
+}

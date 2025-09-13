@@ -1,0 +1,30 @@
+{
+  "opportunity": {
+    "notice_id": "TEST004",
+    "Office": "Department of Defense",
+    "description": "Cloud infrastructure modernization",
+    "Award$": "5000000",
+    "NaicsCode": "541511"
+  },
+  "company_profile": {
+    "company_id": "COMP004",
+    "past_performance": [
+      {
+        "title": "DoD Cloud Migration Project",
+        "agency": "Department of Defense",
+        "scope": "Migration of legacy systems to AWS cloud",
+        "value": 2500000,
+        "completion_year": 2023,
+        "cpars_rating": 4.5
+      },
+      {
+        "title": "Navy Cybersecurity Implementation",
+        "agency": "Department of Navy",
+        "scope": "Cybersecurity framework implementation",
+        "value": 1500000,
+        "completion_year": 2022,
+        "cpars_rating": 4.2
+      }
+    ]
+  }
+}

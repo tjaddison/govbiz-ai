@@ -1,0 +1,7 @@
+{
+  "file_name": "test-document.pdf",
+  "file_size": 1048576,
+  "content_type": "application/pdf",
+  "tenant_id": "test-tenant-123",
+  "document_type": "capability_statement"
+}

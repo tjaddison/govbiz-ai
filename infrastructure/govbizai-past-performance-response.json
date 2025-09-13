@@ -1,0 +1,1 @@
+{"statusCode": 200, "body": "{\"past_performance_score\": {\"score\": 0.5, \"overall_score\": 0.5, \"past_performance_count\": 2, \"agency_match_bonus\": 0.0, \"processing_time_ms\": 5.0}, \"component\": \"past_performance\", \"weight\": 0.2, \"timestamp\": 1757772716}"}

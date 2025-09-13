@@ -1,0 +1,7 @@
+{
+  "document_text": "This is a test capability statement for Tech Solutions Inc. We provide innovative technology solutions for government agencies, specializing in cloud infrastructure, cybersecurity, and digital transformation. Our team has extensive experience with AWS, Microsoft Azure, and Google Cloud platforms. We hold security clearances and have worked with various federal agencies including the Department of Defense and Department of Homeland Security.",
+  "document_type": "capability_statement",
+  "company_id": "company-456",
+  "tenant_id": "test-tenant-123",
+  "s3_key": "test/documents/capability.txt"
+}

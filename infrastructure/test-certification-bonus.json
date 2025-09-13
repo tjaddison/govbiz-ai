@@ -1,0 +1,10 @@
+{
+  "opportunity": {
+    "notice_id": "TEST005",
+    "SetASide": "8(a)"
+  },
+  "company_profile": {
+    "company_id": "COMP005",
+    "certifications": ["8(a)", "WOSB", "SDVOSB"]
+  }
+}

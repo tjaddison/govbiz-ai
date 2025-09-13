@@ -1,0 +1,23 @@
+{
+  "opportunity": {
+    "notice_id": "TEST006",
+    "PopCity": "Arlington",
+    "PopState": "VA",
+    "PopCountry": "US"
+  },
+  "company_profile": {
+    "company_id": "COMP006",
+    "locations": [
+      {
+        "city": "Arlington",
+        "state": "VA",
+        "country": "US"
+      },
+      {
+        "city": "Washington",
+        "state": "DC",
+        "country": "US"
+      }
+    ]
+  }
+}
