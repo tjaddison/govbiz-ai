@@ -9,6 +9,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import ConfirmSignUp from './pages/auth/ConfirmSignUp';
 import ForgotPassword from './pages/auth/ForgotPassword';
+import OAuthCallback from './pages/auth/OAuthCallback';
 import Dashboard from './pages/Dashboard';
 import CompanyProfile from './pages/company/CompanyProfile';
 import DocumentManagement from './pages/company/DocumentManagement';
@@ -126,6 +127,7 @@ const App: React.FC = () => {
               <Route path="/register" element={<Register />} />
               <Route path="/confirm-signup" element={<ConfirmSignUp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/auth/callback" element={<OAuthCallback />} />
 
               {/* Protected routes */}
               <Route
