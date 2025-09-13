@@ -14,6 +14,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
 import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 
 export class InfrastructureStack extends cdk.Stack {
@@ -527,6 +528,9 @@ export class InfrastructureStack extends cdk.Stack {
 
     // 12. Create Phase 6: Company Profile Management Functions
     this.createCompanyProfileManagementFunctions();
+
+    // 13. Create Phase 7: Matching Engine Functions
+    this.createMatchingEngineFunctions();
 
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
@@ -2134,6 +2138,345 @@ export class InfrastructureStack extends cdk.Stack {
       value: companyProfileLayer.layerVersionArn,
       description: 'ARN of the Company Profile Lambda Layer',
       exportName: 'govbizai-company-profile-layer-arn',
+    });
+  }
+
+  private createMatchingEngineFunctions(): void {
+    // Create Lambda layer for matching engine dependencies
+    const matchingEngineLayer = new lambda.LayerVersion(this, 'govbizai-matching-engine-layer', {
+      layerVersionName: 'govbizai-matching-engine-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/matching-engine')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Matching engine dependencies including numpy, scipy, scikit-learn',
+    });
+
+    // Create cache table for match results
+    const matchCacheTable = new dynamodb.Table(this, 'govbizai-match-cache', {
+      tableName: 'govbizai-match-cache',
+      partitionKey: {
+        name: 'cache_key',
+        type: dynamodb.AttributeType.STRING
+      },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.kmsKey,
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true
+      },
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Common Lambda function properties for matching engine
+    const matchingEngineFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+        COMPANIES_TABLE: this.companiesTable.tableName,
+        MATCHES_TABLE: this.matchesTable.tableName,
+        CACHE_TABLE: matchCacheTable.tableName,
+      },
+      layers: [matchingEngineLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    };
+
+    // 1. Semantic Similarity Calculator
+    const semanticSimilarityFunction = new lambda.Function(this, 'govbizai-semantic-similarity', {
+      functionName: 'govbizai-semantic-similarity',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/semantic-similarity')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate semantic similarity between opportunities and companies using Bedrock embeddings',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 2. Keyword Matching Algorithm
+    const keywordMatchingFunction = new lambda.Function(this, 'govbizai-keyword-matching', {
+      functionName: 'govbizai-keyword-matching',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/keyword-matching')),
+      handler: 'handler.lambda_handler',
+      description: 'Perform keyword matching with TF-IDF scoring and acronym handling',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 3. NAICS Alignment Scorer
+    const naicsAlignmentFunction = new lambda.Function(this, 'govbizai-naics-alignment', {
+      functionName: 'govbizai-naics-alignment',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/naics-alignment')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate NAICS code alignment with tiered matching',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 4. Past Performance Analyzer
+    const pastPerformanceFunction = new lambda.Function(this, 'govbizai-past-performance', {
+      functionName: 'govbizai-past-performance',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/past-performance')),
+      handler: 'handler.lambda_handler',
+      description: 'Analyze past performance relevance and CPARS ratings',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 5. Certification Bonus Matcher
+    const certificationBonusFunction = new lambda.Function(this, 'govbizai-certification-bonus', {
+      functionName: 'govbizai-certification-bonus',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/certification-bonus')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate certification bonus scores and set-aside compliance',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 6. Geographic Match Calculator
+    const geographicMatchFunction = new lambda.Function(this, 'govbizai-geographic-match', {
+      functionName: 'govbizai-geographic-match',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/geographic-match')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate geographic proximity and location-based scoring',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 7. Capacity Fit Calculator
+    const capacityFitFunction = new lambda.Function(this, 'govbizai-capacity-fit', {
+      functionName: 'govbizai-capacity-fit',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/capacity-fit')),
+      handler: 'handler.lambda_handler',
+      description: 'Assess capacity fit between company size and contract requirements',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 8. Recency Factor Scorer
+    const recencyFactorFunction = new lambda.Function(this, 'govbizai-recency-factor', {
+      functionName: 'govbizai-recency-factor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/recency-factor')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate recency factor with time-based decay',
+      ...matchingEngineFunctionProps,
+    });
+
+    // 9. Quick Filter (Pre-screening)
+    const quickFilterFunction = new lambda.Function(this, 'govbizai-quick-filter', {
+      functionName: 'govbizai-quick-filter',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/quick-filter')),
+      handler: 'handler.lambda_handler',
+      description: 'Rapid pre-screening filter for potential matches',
+      ...matchingEngineFunctionProps,
+      timeout: cdk.Duration.seconds(10), // Quick filter should be very fast
+      memorySize: 256,
+    });
+
+    // 10. Match Orchestrator (Main Coordinator)
+    const matchOrchestratorFunction = new lambda.Function(this, 'govbizai-match-orchestrator', {
+      functionName: 'govbizai-match-orchestrator',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/match-orchestrator')),
+      handler: 'handler.lambda_handler',
+      description: 'Main orchestrator coordinating all matching components',
+      ...matchingEngineFunctionProps,
+      timeout: cdk.Duration.minutes(2), // Longer timeout for orchestration
+      memorySize: 1024,
+    });
+
+    // Grant permissions to all matching engine functions
+    const matchingEngineFunctions = [
+      semanticSimilarityFunction,
+      keywordMatchingFunction,
+      naicsAlignmentFunction,
+      pastPerformanceFunction,
+      certificationBonusFunction,
+      geographicMatchFunction,
+      capacityFitFunction,
+      recencyFactorFunction,
+      quickFilterFunction,
+      matchOrchestratorFunction,
+    ];
+
+    matchingEngineFunctions.forEach(func => {
+      // S3 permissions
+      this.embeddingsBucket.grantRead(func);
+
+      // DynamoDB permissions
+      this.opportunitiesTable.grantReadData(func);
+      this.companiesTable.grantReadData(func);
+      this.matchesTable.grantReadWriteData(func);
+      matchCacheTable.grantReadWriteData(func);
+
+      // Bedrock permissions for embeddings
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        ],
+      }));
+    });
+
+    // Grant orchestrator permission to invoke component functions
+    matchingEngineFunctions.slice(0, -1).forEach(componentFunc => {
+      componentFunc.grantInvoke(matchOrchestratorFunction);
+    });
+
+    // Create SQS queue for batch matching operations
+    const batchMatchingQueue = new sqs.Queue(this, 'govbizai-batch-matching-queue', {
+      queueName: 'govbizai-batch-matching-queue',
+      visibilityTimeout: cdk.Duration.minutes(5),
+      retentionPeriod: cdk.Duration.days(14),
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'govbizai-batch-matching-dlq', {
+          queueName: 'govbizai-batch-matching-dlq',
+        }),
+        maxReceiveCount: 3,
+      },
+    });
+
+    // Grant SQS permissions
+    batchMatchingQueue.grantSendMessages(matchOrchestratorFunction);
+    batchMatchingQueue.grantConsumeMessages(matchOrchestratorFunction);
+
+    // Create API Gateway for matching engine
+    const matchingApi = new apigateway.RestApi(this, 'govbizai-matching-api', {
+      restApiName: 'govbizai-matching-api',
+      description: 'API for opportunity matching operations',
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key'],
+      },
+    });
+
+    // Create API Gateway integration
+    const matchingIntegration = new apigateway.LambdaIntegration(matchOrchestratorFunction);
+
+    // Add API routes
+    const matchResource = matchingApi.root.addResource('match');
+    matchResource.addMethod('POST', matchingIntegration, {
+      apiKeyRequired: true,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+      authorizer: new apigateway.CognitoUserPoolsAuthorizer(this, 'govbizai-matching-authorizer', {
+        cognitoUserPools: [this.userPool],
+      }),
+    });
+
+    // Create API key and usage plan
+    const apiKey = new apigateway.ApiKey(this, 'govbizai-matching-api-key', {
+      apiKeyName: 'govbizai-matching-api-key',
+      description: 'API key for GovBizAI matching engine',
+    });
+
+    const usagePlan = new apigateway.UsagePlan(this, 'govbizai-matching-usage-plan', {
+      name: 'govbizai-matching-usage-plan',
+      description: 'Usage plan for GovBizAI matching API',
+      apiStages: [{
+        api: matchingApi,
+        stage: matchingApi.deploymentStage,
+      }],
+      throttle: {
+        rateLimit: 100,  // requests per second
+        burstLimit: 200,
+      },
+      quota: {
+        limit: 10000,  // requests per month
+        period: apigateway.Period.MONTH,
+      },
+    });
+
+    usagePlan.addApiKey(apiKey);
+
+    // Output Lambda function ARNs
+    new cdk.CfnOutput(this, 'SemanticSimilarityFunctionArn', {
+      value: semanticSimilarityFunction.functionArn,
+      description: 'ARN of the Semantic Similarity Lambda function',
+      exportName: 'govbizai-semantic-similarity-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'KeywordMatchingFunctionArn', {
+      value: keywordMatchingFunction.functionArn,
+      description: 'ARN of the Keyword Matching Lambda function',
+      exportName: 'govbizai-keyword-matching-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'NAICSAlignmentFunctionArn', {
+      value: naicsAlignmentFunction.functionArn,
+      description: 'ARN of the NAICS Alignment Lambda function',
+      exportName: 'govbizai-naics-alignment-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'PastPerformanceFunctionArn', {
+      value: pastPerformanceFunction.functionArn,
+      description: 'ARN of the Past Performance Lambda function',
+      exportName: 'govbizai-past-performance-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'CertificationBonusFunctionArn', {
+      value: certificationBonusFunction.functionArn,
+      description: 'ARN of the Certification Bonus Lambda function',
+      exportName: 'govbizai-certification-bonus-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'GeographicMatchFunctionArn', {
+      value: geographicMatchFunction.functionArn,
+      description: 'ARN of the Geographic Match Lambda function',
+      exportName: 'govbizai-geographic-match-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'CapacityFitFunctionArn', {
+      value: capacityFitFunction.functionArn,
+      description: 'ARN of the Capacity Fit Lambda function',
+      exportName: 'govbizai-capacity-fit-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'RecencyFactorFunctionArn', {
+      value: recencyFactorFunction.functionArn,
+      description: 'ARN of the Recency Factor Lambda function',
+      exportName: 'govbizai-recency-factor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'QuickFilterFunctionArn', {
+      value: quickFilterFunction.functionArn,
+      description: 'ARN of the Quick Filter Lambda function',
+      exportName: 'govbizai-quick-filter-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'MatchOrchestratorFunctionArn', {
+      value: matchOrchestratorFunction.functionArn,
+      description: 'ARN of the Match Orchestrator Lambda function',
+      exportName: 'govbizai-match-orchestrator-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'MatchingEngineLayerArn', {
+      value: matchingEngineLayer.layerVersionArn,
+      description: 'ARN of the Matching Engine Lambda Layer',
+      exportName: 'govbizai-matching-engine-layer-arn',
+    });
+
+    new cdk.CfnOutput(this, 'MatchCacheTableName', {
+      value: matchCacheTable.tableName,
+      description: 'Name of the Match Cache DynamoDB table',
+      exportName: 'govbizai-match-cache-table-name',
+    });
+
+    new cdk.CfnOutput(this, 'BatchMatchingQueueUrl', {
+      value: batchMatchingQueue.queueUrl,
+      description: 'URL of the Batch Matching SQS Queue',
+      exportName: 'govbizai-batch-matching-queue-url',
+    });
+
+    new cdk.CfnOutput(this, 'MatchingApiEndpoint', {
+      value: matchingApi.url,
+      description: 'Endpoint URL of the Matching API',
+      exportName: 'govbizai-matching-api-endpoint',
+    });
+
+    new cdk.CfnOutput(this, 'MatchingApiKey', {
+      value: apiKey.keyId,
+      description: 'API Key ID for the Matching API',
+      exportName: 'govbizai-matching-api-key-id',
     });
   }
 }
