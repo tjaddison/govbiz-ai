@@ -507,7 +507,10 @@ export class InfrastructureStack extends cdk.Stack {
     // 7. Create tenant management Lambda functions
     this.createTenantManagementFunctions();
 
-    // 8. Create IAM roles and policies
+    // 8. Create document processing Lambda functions
+    this.createDocumentProcessingFunctions();
+
+    // 9. Create IAM roles and policies
     this.createIAMRoles();
 
     // Tag all resources with govbizai prefix
@@ -1081,6 +1084,206 @@ export class InfrastructureStack extends cdk.Stack {
       value: eventBridgeExecutionRole.roleArn,
       description: 'ARN of the EventBridge execution role',
       exportName: 'govbizai-eventbridge-execution-role-arn',
+    });
+  }
+
+  private createDocumentProcessingFunctions(): void {
+    // Create Lambda layer for document processing dependencies
+    const documentProcessingLayer = new lambda.LayerVersion(this, 'govbizai-document-processing-layer', {
+      layerVersionName: 'govbizai-document-processing-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/document-processing')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Document processing dependencies including PyMuPDF, python-docx, openpyxl, etc.',
+    });
+
+    // Common Lambda function properties for document processing
+    const documentProcessingFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        RAW_DOCUMENTS_BUCKET: this.rawDocumentsBucket.bucketName,
+        PROCESSED_DOCUMENTS_BUCKET: this.processedDocumentsBucket.bucketName,
+        TEMP_PROCESSING_BUCKET: this.tempProcessingBucket.bucketName,
+        COMPANIES_TABLE: this.companiesTable.tableName,
+        TEXTRACT_ROLE_ARN: `arn:aws:iam::${this.account}:role/govbizai-lambda-execution-role`,
+      },
+      layers: [documentProcessingLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    };
+
+    // 1. Text Extraction Function (PyMuPDF)
+    const textExtractionFunction = new lambda.Function(this, 'govbizai-text-extraction', {
+      functionName: 'govbizai-text-extraction',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/text-extraction')),
+      handler: 'handler.lambda_handler',
+      description: 'Extract text from PDF documents using PyMuPDF with Textract fallback',
+      ...documentProcessingFunctionProps,
+    });
+
+    // 2. Textract Processor Function
+    const textractProcessorFunction = new lambda.Function(this, 'govbizai-textract-processor', {
+      functionName: 'govbizai-textract-processor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/textract-processor')),
+      handler: 'handler.lambda_handler',
+      description: 'Process documents using Amazon Textract for scanned/image PDFs',
+      ...documentProcessingFunctionProps,
+    });
+
+    // 3. Text Cleaner Function
+    const textCleanerFunction = new lambda.Function(this, 'govbizai-text-cleaner', {
+      functionName: 'govbizai-text-cleaner',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/text-cleaner')),
+      handler: 'handler.lambda_handler',
+      description: 'Clean and normalize extracted text from documents',
+      ...documentProcessingFunctionProps,
+      timeout: cdk.Duration.minutes(10), // Shorter timeout for text cleaning
+      memorySize: 512,
+    });
+
+    // 4. Document Chunker Function
+    const documentChunkerFunction = new lambda.Function(this, 'govbizai-document-chunker', {
+      functionName: 'govbizai-document-chunker',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/document-chunker')),
+      handler: 'handler.lambda_handler',
+      description: 'Chunk documents into manageable segments for embedding generation',
+      ...documentProcessingFunctionProps,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 512,
+    });
+
+    // 5. File Handlers Function
+    const fileHandlersFunction = new lambda.Function(this, 'govbizai-file-handlers', {
+      functionName: 'govbizai-file-handlers',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/file-handlers')),
+      handler: 'handler.lambda_handler',
+      description: 'Handle text extraction from various file formats (Word, Excel, Text, HTML)',
+      ...documentProcessingFunctionProps,
+      environment: {
+        ...documentProcessingFunctionProps.environment,
+        TEXT_EXTRACTION_FUNCTION: textExtractionFunction.functionName,
+      },
+    });
+
+    // 6. Unified Processor Function (Orchestrator)
+    const unifiedProcessorFunction = new lambda.Function(this, 'govbizai-unified-processor', {
+      functionName: 'govbizai-unified-processor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/unified-processor')),
+      handler: 'handler.lambda_handler',
+      description: 'Unified interface for orchestrating the complete document processing pipeline',
+      ...documentProcessingFunctionProps,
+      timeout: cdk.Duration.minutes(5), // Orchestrator doesn't do heavy processing
+      environment: {
+        ...documentProcessingFunctionProps.environment,
+        FILE_HANDLERS_FUNCTION: fileHandlersFunction.functionName,
+        TEXT_EXTRACTION_FUNCTION: textExtractionFunction.functionName,
+        TEXTRACT_PROCESSOR_FUNCTION: textractProcessorFunction.functionName,
+        TEXT_CLEANER_FUNCTION: textCleanerFunction.functionName,
+        DOCUMENT_CHUNKER_FUNCTION: documentChunkerFunction.functionName,
+      },
+    });
+
+    // Grant S3 permissions to all document processing functions
+    const documentProcessingFunctions = [
+      textExtractionFunction,
+      textractProcessorFunction,
+      textCleanerFunction,
+      documentChunkerFunction,
+      fileHandlersFunction,
+      unifiedProcessorFunction,
+    ];
+
+    documentProcessingFunctions.forEach(func => {
+      // S3 permissions
+      this.rawDocumentsBucket.grantRead(func);
+      this.processedDocumentsBucket.grantReadWrite(func);
+      this.tempProcessingBucket.grantReadWrite(func);
+
+      // DynamoDB permissions
+      this.companiesTable.grantReadData(func);
+
+      // Textract permissions
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'textract:StartDocumentTextDetection',
+          'textract:GetDocumentTextDetection',
+          'textract:StartDocumentAnalysis',
+          'textract:GetDocumentAnalysis',
+          'textract:DetectDocumentText',
+          'textract:AnalyzeDocument',
+        ],
+        resources: ['*'],
+      }));
+    });
+
+    // Grant Lambda invoke permissions to the unified processor
+    textExtractionFunction.grantInvoke(unifiedProcessorFunction);
+    textractProcessorFunction.grantInvoke(unifiedProcessorFunction);
+    textCleanerFunction.grantInvoke(unifiedProcessorFunction);
+    documentChunkerFunction.grantInvoke(unifiedProcessorFunction);
+    fileHandlersFunction.grantInvoke(unifiedProcessorFunction);
+
+    // Grant cross-function invoke permission for file handlers
+    textExtractionFunction.grantInvoke(fileHandlersFunction);
+
+    // Add S3 trigger for automatic processing (optional)
+    // Uncomment to enable automatic processing when files are uploaded
+    /*
+    this.rawDocumentsBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new s3n.LambdaDestination(unifiedProcessorFunction),
+      {
+        prefix: 'tenants/',
+        suffix: '.pdf'
+      }
+    );
+    */
+
+    // Output Lambda function ARNs
+    new cdk.CfnOutput(this, 'TextExtractionFunctionArn', {
+      value: textExtractionFunction.functionArn,
+      description: 'ARN of the Text Extraction Lambda function',
+      exportName: 'govbizai-text-extraction-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'TextractProcessorFunctionArn', {
+      value: textractProcessorFunction.functionArn,
+      description: 'ARN of the Textract Processor Lambda function',
+      exportName: 'govbizai-textract-processor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'TextCleanerFunctionArn', {
+      value: textCleanerFunction.functionArn,
+      description: 'ARN of the Text Cleaner Lambda function',
+      exportName: 'govbizai-text-cleaner-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'DocumentChunkerFunctionArn', {
+      value: documentChunkerFunction.functionArn,
+      description: 'ARN of the Document Chunker Lambda function',
+      exportName: 'govbizai-document-chunker-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'FileHandlersFunctionArn', {
+      value: fileHandlersFunction.functionArn,
+      description: 'ARN of the File Handlers Lambda function',
+      exportName: 'govbizai-file-handlers-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'UnifiedProcessorFunctionArn', {
+      value: unifiedProcessorFunction.functionArn,
+      description: 'ARN of the Unified Processor Lambda function',
+      exportName: 'govbizai-unified-processor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'DocumentProcessingLayerArn', {
+      value: documentProcessingLayer.layerVersionArn,
+      description: 'ARN of the Document Processing Lambda Layer',
+      exportName: 'govbizai-document-processing-layer-arn',
     });
   }
 }
