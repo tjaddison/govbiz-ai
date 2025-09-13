@@ -2478,5 +2478,409 @@ export class InfrastructureStack extends cdk.Stack {
       description: 'API Key ID for the Matching API',
       exportName: 'govbizai-matching-api-key-id',
     });
+
+    // Phase 8: Create Batch Processing Orchestration components
+    this.createBatchOrchestrationComponents();
+  }
+
+  private createBatchOrchestrationComponents(): void {
+    // Create DynamoDB tables for batch orchestration
+    const batchCoordinationTable = new dynamodb.Table(this, 'govbizai-batch-coordination', {
+      tableName: 'govbizai-batch-coordination',
+      partitionKey: { name: 'coordination_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    const progressTrackingTable = new dynamodb.Table(this, 'govbizai-progress-tracking', {
+      tableName: 'govbizai-progress-tracking',
+      partitionKey: { name: 'coordination_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'batch_id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    const batchOptimizationTable = new dynamodb.Table(this, 'govbizai-batch-optimization-history', {
+      tableName: 'govbizai-batch-optimization-history',
+      partitionKey: { name: 'processing_type', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    const scheduleManagementTable = new dynamodb.Table(this, 'govbizai-schedule-management', {
+      tableName: 'govbizai-schedule-management',
+      partitionKey: { name: 'schedule_name', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Create SQS queue for batch processing coordination
+    const batchCoordinationQueue = new sqs.Queue(this, 'govbizai-batch-coordination-queue', {
+      queueName: 'govbizai-batch-coordination-queue.fifo',
+      fifo: true,
+      contentBasedDeduplication: true,
+      visibilityTimeout: cdk.Duration.minutes(15),
+      retentionPeriod: cdk.Duration.days(14),
+      deadLetterQueue: {
+        maxReceiveCount: 3,
+        queue: new sqs.Queue(this, 'govbizai-batch-coordination-dlq', {
+          queueName: 'govbizai-batch-coordination-dlq.fifo',
+          fifo: true,
+        }),
+      },
+    });
+
+    // Create Lambda layer for batch orchestration dependencies
+    const batchOrchestrationLayer = new lambda.LayerVersion(this, 'govbizai-batch-orchestration-layer', {
+      layerVersionName: 'govbizai-batch-orchestration-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/batch-orchestration')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Batch orchestration dependencies including boto3, CloudWatch metrics, etc.',
+    });
+
+    // Common function properties for batch orchestration functions
+    const batchFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      layers: [batchOrchestrationLayer],
+      environment: {
+        COORDINATION_TABLE: batchCoordinationTable.tableName,
+        PROGRESS_TABLE: progressTrackingTable.tableName,
+        OPTIMIZATION_TABLE: batchOptimizationTable.tableName,
+        SCHEDULE_TABLE: scheduleManagementTable.tableName,
+        COORDINATION_QUEUE_URL: batchCoordinationQueue.queueUrl,
+      },
+    };
+
+    // Create Batch Size Optimizer Lambda function
+    const batchOptimizerFunction = new lambda.Function(this, 'govbizai-batch-optimizer-function', {
+      ...batchFunctionProps,
+      functionName: 'govbizai-batch-optimizer-function',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/batch-optimizer')),
+      handler: 'batch_optimizer.lambda_handler',
+      description: 'Optimizes batch sizes based on performance metrics and system constraints',
+    });
+
+    // Create Batch Processing Coordinator Lambda function
+    const batchCoordinatorFunction = new lambda.Function(this, 'govbizai-batch-coordinator-function', {
+      ...batchFunctionProps,
+      functionName: 'govbizai-batch-coordinator-function',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/batch-coordinator')),
+      handler: 'batch_coordinator.lambda_handler',
+      description: 'Coordinates parallel batch processing with intelligent distribution',
+    });
+
+    // Create Progress Tracker Lambda function
+    const progressTrackerFunction = new lambda.Function(this, 'govbizai-progress-tracker-function', {
+      ...batchFunctionProps,
+      functionName: 'govbizai-progress-tracker-function',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/progress-tracker')),
+      handler: 'progress_tracker.lambda_handler',
+      description: 'Tracks and reports real-time progress of batch processing operations',
+    });
+
+    // Create Schedule Manager Lambda function
+    const scheduleManagerFunction = new lambda.Function(this, 'govbizai-schedule-manager-function', {
+      ...batchFunctionProps,
+      functionName: 'govbizai-schedule-manager-function',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/schedule-manager')),
+      handler: 'schedule_manager.lambda_handler',
+      description: 'Manages EventBridge schedules for batch processing operations',
+    });
+
+    // Grant permissions to Lambda functions
+    batchCoordinationTable.grantReadWriteData(batchOptimizerFunction);
+    batchCoordinationTable.grantReadWriteData(batchCoordinatorFunction);
+    batchCoordinationTable.grantReadWriteData(progressTrackerFunction);
+
+    progressTrackingTable.grantReadWriteData(progressTrackerFunction);
+    progressTrackingTable.grantReadWriteData(batchCoordinatorFunction);
+
+    batchOptimizationTable.grantReadWriteData(batchOptimizerFunction);
+    scheduleManagementTable.grantReadWriteData(scheduleManagerFunction);
+
+    batchCoordinationQueue.grantSendMessages(batchCoordinatorFunction);
+    batchCoordinationQueue.grantConsumeMessages(batchCoordinatorFunction);
+
+    // Grant CloudWatch permissions for metrics
+    batchOptimizerFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'cloudwatch:GetMetricStatistics',
+        'cloudwatch:PutMetricData',
+        'logs:CreateLogGroup',
+        'logs:CreateLogStream',
+        'logs:PutLogEvents',
+      ],
+      resources: ['*'],
+    }));
+
+    progressTrackerFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'cloudwatch:PutMetricData',
+        'sns:Publish',
+        'logs:CreateLogGroup',
+        'logs:CreateLogStream',
+        'logs:PutLogEvents',
+      ],
+      resources: ['*'],
+    }));
+
+    // Grant EventBridge permissions to Schedule Manager
+    scheduleManagerFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'events:PutRule',
+        'events:DeleteRule',
+        'events:DescribeRule',
+        'events:PutTargets',
+        'events:RemoveTargets',
+        'events:ListTargetsByRule',
+        'states:StartExecution',
+        'states:DescribeExecution',
+      ],
+      resources: ['*'],
+    }));
+
+    // Create enhanced Step Functions Express workflow
+    const enhancedProcessingStateMachine = this.createEnhancedProcessingStateMachine(
+      batchOptimizerFunction,
+      batchCoordinatorFunction,
+      progressTrackerFunction,
+      batchCoordinationQueue
+    );
+
+    // Create EventBridge rules for enhanced batch processing
+    const enhancedNightlyRule = new events.Rule(this, 'govbizai-enhanced-nightly-processing-rule', {
+      ruleName: 'govbizai-enhanced-nightly-processing-rule',
+      description: 'Enhanced nightly processing with batch optimization at 2:00 AM EST',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7', // 2:00 AM EST = 7:00 AM UTC
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+      enabled: true,
+    });
+
+    enhancedNightlyRule.addTarget(new targets.SfnStateMachine(enhancedProcessingStateMachine, {
+      input: events.RuleTargetInput.fromObject({
+        processing_type: 'nightly_batch',
+        enable_optimization: true,
+        enable_progress_tracking: true,
+      }),
+    }));
+
+    // Create API Gateway for batch orchestration management
+    const batchOrchestrationApi = new apigateway.RestApi(this, 'govbizai-batch-orchestration-api', {
+      restApiName: 'govbizai-batch-orchestration-api',
+      description: 'API for managing batch processing orchestration',
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+      },
+    });
+
+    const batchApiKey = batchOrchestrationApi.addApiKey('govbizai-batch-api-key', {
+      apiKeyName: 'govbizai-batch-api-key',
+      description: 'API Key for GovBizAI Batch Orchestration API',
+    });
+
+    const batchUsagePlan = batchOrchestrationApi.addUsagePlan('govbizai-batch-usage-plan', {
+      name: 'govbizai-batch-usage-plan',
+      description: 'Usage plan for GovBizAI Batch Orchestration API',
+      throttle: {
+        rateLimit: 1000,
+        burstLimit: 2000,
+      },
+      quota: {
+        limit: 10000,
+        period: apigateway.Period.DAY,
+      },
+    });
+
+    batchUsagePlan.addApiKey(batchApiKey);
+
+    // Create API Gateway integrations
+    const optimizerIntegration = new apigateway.LambdaIntegration(batchOptimizerFunction);
+    const coordinatorIntegration = new apigateway.LambdaIntegration(batchCoordinatorFunction);
+    const progressIntegration = new apigateway.LambdaIntegration(progressTrackerFunction);
+    const scheduleIntegration = new apigateway.LambdaIntegration(scheduleManagerFunction);
+
+    // Add API resources and methods
+    const batchResource = batchOrchestrationApi.root.addResource('batch');
+    const optimizerResource = batchResource.addResource('optimizer');
+    const coordinatorResource = batchResource.addResource('coordinator');
+    const progressResource = batchResource.addResource('progress');
+    const scheduleResource = batchResource.addResource('schedule');
+
+    optimizerResource.addMethod('POST', optimizerIntegration, { apiKeyRequired: true });
+    coordinatorResource.addMethod('POST', coordinatorIntegration, { apiKeyRequired: true });
+    progressResource.addMethod('GET', progressIntegration, { apiKeyRequired: true });
+    progressResource.addMethod('POST', progressIntegration, { apiKeyRequired: true });
+    scheduleResource.addMethod('GET', scheduleIntegration, { apiKeyRequired: true });
+    scheduleResource.addMethod('POST', scheduleIntegration, { apiKeyRequired: true });
+    scheduleResource.addMethod('PUT', scheduleIntegration, { apiKeyRequired: true });
+    scheduleResource.addMethod('DELETE', scheduleIntegration, { apiKeyRequired: true });
+
+    batchUsagePlan.addApiStage({
+      stage: batchOrchestrationApi.deploymentStage,
+    });
+
+    // Output Phase 8 component details
+    new cdk.CfnOutput(this, 'BatchOptimizerFunctionArn', {
+      value: batchOptimizerFunction.functionArn,
+      description: 'ARN of the Batch Optimizer Lambda function',
+      exportName: 'govbizai-batch-optimizer-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'BatchCoordinatorFunctionArn', {
+      value: batchCoordinatorFunction.functionArn,
+      description: 'ARN of the Batch Coordinator Lambda function',
+      exportName: 'govbizai-batch-coordinator-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'ProgressTrackerFunctionArn', {
+      value: progressTrackerFunction.functionArn,
+      description: 'ARN of the Progress Tracker Lambda function',
+      exportName: 'govbizai-progress-tracker-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'ScheduleManagerFunctionArn', {
+      value: scheduleManagerFunction.functionArn,
+      description: 'ARN of the Schedule Manager Lambda function',
+      exportName: 'govbizai-schedule-manager-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'EnhancedProcessingStateMachineArn', {
+      value: enhancedProcessingStateMachine.stateMachineArn,
+      description: 'ARN of the Enhanced Processing Step Functions State Machine',
+      exportName: 'govbizai-enhanced-processing-state-machine-arn',
+    });
+
+    new cdk.CfnOutput(this, 'BatchCoordinationQueueUrl', {
+      value: batchCoordinationQueue.queueUrl,
+      description: 'URL of the Batch Coordination SQS Queue',
+      exportName: 'govbizai-batch-coordination-queue-url',
+    });
+
+    new cdk.CfnOutput(this, 'BatchOrchestrationApiEndpoint', {
+      value: batchOrchestrationApi.url,
+      description: 'Endpoint URL of the Batch Orchestration API',
+      exportName: 'govbizai-batch-orchestration-api-endpoint',
+    });
+
+    new cdk.CfnOutput(this, 'BatchOrchestrationApiKey', {
+      value: batchApiKey.keyId,
+      description: 'API Key ID for the Batch Orchestration API',
+      exportName: 'govbizai-batch-orchestration-api-key-id',
+    });
+  }
+
+  private createEnhancedProcessingStateMachine(
+    batchOptimizer: lambda.Function,
+    batchCoordinator: lambda.Function,
+    progressTracker: lambda.Function,
+    coordinationQueue: sqs.Queue
+  ): stepfunctions.StateMachine {
+    // Define the enhanced Step Functions workflow with Express capabilities
+    const optimizeBatchSizeTask = new stepfunctionsTasks.LambdaInvoke(this, 'Optimize Batch Size', {
+      lambdaFunction: batchOptimizer,
+      outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+      taskTimeout: stepfunctions.Timeout.duration(cdk.Duration.minutes(5)),
+    });
+
+    const coordinateProcessingTask = new stepfunctionsTasks.LambdaInvoke(this, 'Coordinate Processing', {
+      lambdaFunction: batchCoordinator,
+      outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+      taskTimeout: stepfunctions.Timeout.duration(cdk.Duration.minutes(10)),
+    });
+
+    const trackProgressTask = new stepfunctionsTasks.LambdaInvoke(this, 'Track Progress', {
+      lambdaFunction: progressTracker,
+      outputPath: '$.Payload',
+      retryOnServiceExceptions: true,
+      taskTimeout: stepfunctions.Timeout.duration(cdk.Duration.minutes(2)),
+    });
+
+    // Create a wait state for progress monitoring
+    const waitForProgress = new stepfunctions.Wait(this, 'Wait for Progress', {
+      time: stepfunctions.WaitTime.duration(cdk.Duration.minutes(1)),
+    });
+
+    // Create a second track progress task for the monitoring loop
+    const trackProgressTaskLoop = new stepfunctionsTasks.LambdaInvoke(this, 'Track Progress Loop', {
+      lambdaFunction: progressTracker,
+      resultPath: '$.progress',
+      taskTimeout: stepfunctions.Timeout.duration(cdk.Duration.minutes(2)),
+    });
+
+    // Create choice state for progress monitoring
+    const checkProgressChoice = new stepfunctions.Choice(this, 'Check Progress Status');
+
+    // Define success and failure states
+    const processingComplete = new stepfunctions.Succeed(this, 'Enhanced Processing Complete', {
+      comment: 'Enhanced batch processing completed successfully',
+    });
+
+    const processingFailed = new stepfunctions.Fail(this, 'Enhanced Processing Failed', {
+      comment: 'Enhanced batch processing failed',
+    });
+
+    // Create the enhanced workflow definition
+    const definition = stepfunctions.Chain.start(optimizeBatchSizeTask)
+      .next(coordinateProcessingTask)
+      .next(trackProgressTask)
+      .next(waitForProgress)
+      .next(trackProgressTaskLoop)
+      .next(checkProgressChoice
+        .when(stepfunctions.Condition.stringEquals('$.progress.is_complete', 'true'), processingComplete)
+        .when(stepfunctions.Condition.numberGreaterThan('$.progress.failed_batches', 0), processingFailed)
+        .otherwise(waitForProgress));
+
+    // Add comprehensive error handling
+    optimizeBatchSizeTask.addCatch(processingFailed, {
+      errors: ['States.ALL'],
+      resultPath: '$.error',
+    });
+
+    coordinateProcessingTask.addCatch(processingFailed, {
+      errors: ['States.ALL'],
+      resultPath: '$.error',
+    });
+
+    trackProgressTask.addCatch(processingFailed, {
+      errors: ['States.ALL'],
+      resultPath: '$.error',
+    });
+
+    // Create the enhanced state machine as Express workflow
+    const enhancedStateMachine = new stepfunctions.StateMachine(this, 'govbizai-enhanced-processing-state-machine', {
+      stateMachineName: 'govbizai-enhanced-processing-state-machine',
+      stateMachineType: stepfunctions.StateMachineType.EXPRESS,
+      definition: definition,
+      timeout: cdk.Duration.hours(4),
+      logs: {
+        destination: new logs.LogGroup(this, 'govbizai-enhanced-processing-logs', {
+          logGroupName: '/aws/stepfunctions/govbizai-enhanced-processing-state-machine',
+          retention: logs.RetentionDays.ONE_MONTH,
+        }),
+        level: stepfunctions.LogLevel.ALL,
+      },
+    });
+
+    return enhancedStateMachine;
   }
 }
