@@ -1,8 +1,21 @@
 *.js
 !jest.config.js
+!bin/*.js
 *.d.ts
 node_modules
 
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+# Lambda layer dependencies
+lambda-layers/common/python/boto*
+lambda-layers/common/python/dateutil*
+lambda-layers/common/python/jmespath*
+lambda-layers/common/python/s3transfer*
+lambda-layers/common/python/six*
+lambda-layers/common/python/urllib3*
+lambda-layers/common/python/__pycache__
+lambda-layers/common/python/**/dist-info
+lambda-layers/common/python/bin
+lambda-layers/common/python/requirements.txt

@@ -7,6 +7,9 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as path from 'path';
 
 export class InfrastructureStack extends cdk.Stack {
   public readonly vpc: ec2.Vpc;
@@ -21,6 +24,10 @@ export class InfrastructureStack extends cdk.Stack {
   public readonly userProfilesTable: dynamodb.Table;
   public readonly auditLogTable: dynamodb.Table;
   public readonly feedbackTable: dynamodb.Table;
+  public readonly tenantsTable: dynamodb.Table;
+  public userPool: cognito.UserPool;
+  public userPoolClient: cognito.UserPoolClient;
+  public identityPool: cognito.CfnIdentityPool;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -447,6 +454,37 @@ export class InfrastructureStack extends cdk.Stack {
       }
     });
 
+    // Tenants Table
+    this.tenantsTable = new dynamodb.Table(this, 'govbizai-tenants', {
+      tableName: 'govbizai-tenants',
+      partitionKey: {
+        name: 'tenant_id',
+        type: dynamodb.AttributeType.STRING
+      },
+      ...dynamoDbProps,
+    });
+
+    // Add GSI for tenants table
+    this.tenantsTable.addGlobalSecondaryIndex({
+      indexName: 'tenant-name-index',
+      partitionKey: {
+        name: 'tenant_name',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
+    this.tenantsTable.addGlobalSecondaryIndex({
+      indexName: 'subscription-tier-index',
+      partitionKey: {
+        name: 'subscription_tier',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'created_at',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // 5. Create CloudTrail for audit logging
     const cloudTrailLogGroup = new logs.LogGroup(this, 'govbizai-cloudtrail-log-group', {
       logGroupName: '/aws/cloudtrail/govbizai',
@@ -463,13 +501,406 @@ export class InfrastructureStack extends cdk.Stack {
       enableFileValidation: true,
     });
 
-    // 6. Create IAM roles and policies
+    // 6. Create Cognito User Pool for authentication
+    this.setupAuthentication();
+
+    // 7. Create tenant management Lambda functions
+    this.createTenantManagementFunctions();
+
+    // 8. Create IAM roles and policies
     this.createIAMRoles();
 
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
     cdk.Tags.of(this).add('Environment', 'dev');
     cdk.Tags.of(this).add('ManagedBy', 'CDK');
+  }
+
+  private setupAuthentication(): void {
+    // Create Cognito User Pool with custom attributes
+    this.userPool = new cognito.UserPool(this, 'govbizai-user-pool', {
+      userPoolName: 'govbizai-user-pool',
+      selfSignUpEnabled: true,
+      userVerification: {
+        emailSubject: 'Welcome to GovBizAI - Verify your email',
+        emailBody: 'Thank you for signing up to GovBizAI! Your verification code is {####}',
+        emailStyle: cognito.VerificationEmailStyle.CODE,
+      },
+      signInAliases: {
+        email: true,
+        username: false,
+      },
+      autoVerify: {
+        email: true,
+      },
+      passwordPolicy: {
+        minLength: 12,
+        requireLowercase: true,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+        tempPasswordValidity: cdk.Duration.days(7),
+      },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      mfa: cognito.Mfa.OPTIONAL,
+      mfaSecondFactor: {
+        sms: true,
+        otp: true,
+      },
+      customAttributes: {
+        company_id: new cognito.StringAttribute({
+          mutable: true,
+        }),
+        tenant_id: new cognito.StringAttribute({
+          mutable: true,
+        }),
+        role: new cognito.StringAttribute({
+          mutable: true,
+        }),
+        subscription_tier: new cognito.StringAttribute({
+          mutable: true,
+        }),
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: true,
+        },
+        givenName: {
+          required: true,
+          mutable: true,
+        },
+        familyName: {
+          required: true,
+          mutable: true,
+        },
+        phoneNumber: {
+          required: false,
+          mutable: true,
+        },
+      },
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For dev environment
+    });
+
+    // Configure Google OAuth Identity Provider (disabled for now until credentials are configured)
+    /*
+    const googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, 'govbizai-google-provider', {
+      userPool: this.userPool,
+      clientId: '', // To be configured later via environment variables or Parameter Store
+      clientSecret: '', // To be configured later via environment variables or Parameter Store
+      scopes: ['openid', 'email', 'profile'],
+      attributeMapping: {
+        email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+        givenName: cognito.ProviderAttribute.GOOGLE_GIVEN_NAME,
+        familyName: cognito.ProviderAttribute.GOOGLE_FAMILY_NAME,
+        profilePicture: cognito.ProviderAttribute.GOOGLE_PICTURE,
+      },
+    });
+    */
+
+    // Create User Pool Domain
+    const userPoolDomain = new cognito.UserPoolDomain(this, 'govbizai-user-pool-domain', {
+      userPool: this.userPool,
+      cognitoDomain: {
+        domainPrefix: `govbizai-${this.account}`,
+      },
+    });
+
+    // Create User Pool Client for web application
+    this.userPoolClient = new cognito.UserPoolClient(this, 'govbizai-user-pool-client', {
+      userPool: this.userPool,
+      userPoolClientName: 'govbizai-web-client',
+      generateSecret: false, // For SPA applications
+      authFlows: {
+        userSrp: true,
+        userPassword: false, // Disable admin-initiated auth for security
+        custom: false,
+        adminUserPassword: false,
+      },
+      oAuth: {
+        flows: {
+          authorizationCodeGrant: true,
+          implicitCodeGrant: false, // Disabled for security
+        },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.PROFILE,
+        ],
+        callbackUrls: [
+          'http://localhost:3000/auth/callback', // For local development
+          'https://app.govbizai.com/auth/callback', // Production URL placeholder
+        ],
+        logoutUrls: [
+          'http://localhost:3000/auth/logout', // For local development
+          'https://app.govbizai.com/auth/logout', // Production URL placeholder
+        ],
+      },
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.COGNITO,
+      ],
+      readAttributes: new cognito.ClientAttributes()
+        .withStandardAttributes({
+          email: true,
+          givenName: true,
+          familyName: true,
+          phoneNumber: true,
+        })
+        .withCustomAttributes('company_id', 'tenant_id', 'role', 'subscription_tier'),
+      writeAttributes: new cognito.ClientAttributes()
+        .withStandardAttributes({
+          email: true,
+          givenName: true,
+          familyName: true,
+          phoneNumber: true,
+        })
+        .withCustomAttributes('company_id', 'tenant_id', 'role', 'subscription_tier'),
+      accessTokenValidity: cdk.Duration.hours(1),
+      idTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
+      preventUserExistenceErrors: true,
+    });
+
+    // Ensure Google provider is created before the client (disabled for now)
+    // this.userPoolClient.node.addDependency(googleProvider);
+
+    // Create Identity Pool for federated identities
+    this.identityPool = new cognito.CfnIdentityPool(this, 'govbizai-identity-pool', {
+      identityPoolName: 'govbizai-identity-pool',
+      allowUnauthenticatedIdentities: false,
+      cognitoIdentityProviders: [
+        {
+          clientId: this.userPoolClient.userPoolClientId,
+          providerName: this.userPool.userPoolProviderName,
+          serverSideTokenCheck: true,
+        },
+      ],
+    });
+
+    // Create IAM roles for authenticated users
+    const authenticatedRole = new iam.Role(this, 'govbizai-cognito-authenticated-role', {
+      roleName: 'govbizai-cognito-authenticated-role',
+      assumedBy: new iam.FederatedPrincipal(
+        'cognito-identity.amazonaws.com',
+        {
+          StringEquals: {
+            'cognito-identity.amazonaws.com:aud': this.identityPool.ref,
+          },
+          'ForAnyValue:StringLike': {
+            'cognito-identity.amazonaws.com:amr': 'authenticated',
+          },
+        },
+        'sts:AssumeRoleWithWebIdentity'
+      ),
+      inlinePolicies: {
+        'govbizai-authenticated-user-policy': new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cognito-identity:GetCredentialsForIdentity',
+                'cognito-identity:GetId',
+              ],
+              resources: ['*'],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                's3:GetObject',
+                's3:PutObject',
+                's3:DeleteObject',
+              ],
+              resources: [
+                `${this.rawDocumentsBucket.bucketArn}/\${cognito-identity.amazonaws.com:sub}/*`,
+                `${this.processedDocumentsBucket.bucketArn}/\${cognito-identity.amazonaws.com:sub}/*`,
+              ],
+              conditions: {
+                StringEquals: {
+                  's3:x-amz-acl': 'bucket-owner-full-control',
+                },
+              },
+            }),
+          ],
+        }),
+      },
+    });
+
+    // Attach the role to the identity pool
+    new cognito.CfnIdentityPoolRoleAttachment(this, 'govbizai-identity-pool-role-attachment', {
+      identityPoolId: this.identityPool.ref,
+      roles: {
+        authenticated: authenticatedRole.roleArn,
+      },
+    });
+
+    // Output Cognito configuration for use in applications
+    new cdk.CfnOutput(this, 'UserPoolId', {
+      value: this.userPool.userPoolId,
+      description: 'Cognito User Pool ID',
+      exportName: 'govbizai-user-pool-id',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolClientId', {
+      value: this.userPoolClient.userPoolClientId,
+      description: 'Cognito User Pool Client ID',
+      exportName: 'govbizai-user-pool-client-id',
+    });
+
+    new cdk.CfnOutput(this, 'IdentityPoolId', {
+      value: this.identityPool.ref,
+      description: 'Cognito Identity Pool ID',
+      exportName: 'govbizai-identity-pool-id',
+    });
+
+    new cdk.CfnOutput(this, 'UserPoolDomain', {
+      value: userPoolDomain.domainName,
+      description: 'Cognito User Pool Domain',
+      exportName: 'govbizai-user-pool-domain',
+    });
+  }
+
+  private createTenantManagementFunctions(): void {
+    // Create Lambda layer for common dependencies
+    const commonLayer = new lambda.LayerVersion(this, 'govbizai-common-layer', {
+      layerVersionName: 'govbizai-common-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/common')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Common dependencies for GovBizAI Lambda functions',
+    });
+
+    // Tenant Management Lambda Functions
+    const tenantFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        TENANTS_TABLE_NAME: this.tenantsTable.tableName,
+        USER_PROFILES_TABLE_NAME: this.userProfilesTable.tableName,
+        AUDIT_LOG_TABLE_NAME: this.auditLogTable.tableName,
+        COMPANIES_TABLE_NAME: this.companiesTable.tableName,
+      },
+      layers: [commonLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    };
+
+    // Create Tenant Function
+    const createTenantFunction = new lambda.Function(this, 'govbizai-create-tenant', {
+      functionName: 'govbizai-create-tenant',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/tenant-management/create-tenant')),
+      handler: 'handler.lambda_handler',
+      description: 'Creates a new tenant with company profile',
+      ...tenantFunctionProps,
+    });
+
+    // Update Tenant Function
+    const updateTenantFunction = new lambda.Function(this, 'govbizai-update-tenant', {
+      functionName: 'govbizai-update-tenant',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/tenant-management/update-tenant')),
+      handler: 'handler.lambda_handler',
+      description: 'Updates tenant information and settings',
+      ...tenantFunctionProps,
+    });
+
+    // Delete Tenant Function
+    const deleteTenantFunction = new lambda.Function(this, 'govbizai-delete-tenant', {
+      functionName: 'govbizai-delete-tenant',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/tenant-management/delete-tenant')),
+      handler: 'handler.lambda_handler',
+      description: 'Deletes tenant and all associated data',
+      ...tenantFunctionProps,
+    });
+
+    // Get Tenant Function
+    const getTenantFunction = new lambda.Function(this, 'govbizai-get-tenant', {
+      functionName: 'govbizai-get-tenant',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/tenant-management/get-tenant')),
+      handler: 'handler.lambda_handler',
+      description: 'Retrieves tenant details and configuration',
+      ...tenantFunctionProps,
+    });
+
+    // User Registration Post-Confirmation Trigger
+    const postConfirmationFunction = new lambda.Function(this, 'govbizai-post-confirmation', {
+      functionName: 'govbizai-post-confirmation',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/cognito-triggers/post-confirmation')),
+      handler: 'handler.lambda_handler',
+      description: 'Post-confirmation trigger for user registration',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        TENANTS_TABLE_NAME: this.tenantsTable.tableName,
+        USER_PROFILES_TABLE_NAME: this.userProfilesTable.tableName,
+        AUDIT_LOG_TABLE_NAME: this.auditLogTable.tableName,
+        COMPANIES_TABLE_NAME: this.companiesTable.tableName,
+      },
+      layers: [commonLayer],
+    });
+
+    // Pre-Sign-Up Trigger for domain validation
+    const preSignUpFunction = new lambda.Function(this, 'govbizai-pre-sign-up', {
+      functionName: 'govbizai-pre-sign-up',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/cognito-triggers/pre-sign-up')),
+      handler: 'handler.lambda_handler',
+      description: 'Pre-sign-up trigger for user validation',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        TENANTS_TABLE_NAME: this.tenantsTable.tableName,
+        USER_PROFILES_TABLE_NAME: this.userProfilesTable.tableName,
+        AUDIT_LOG_TABLE_NAME: this.auditLogTable.tableName,
+        COMPANIES_TABLE_NAME: this.companiesTable.tableName,
+      },
+      layers: [commonLayer],
+    });
+
+    // Grant permissions to tenant management functions
+    [createTenantFunction, updateTenantFunction, deleteTenantFunction, getTenantFunction].forEach(func => {
+      this.tenantsTable.grantReadWriteData(func);
+      this.userProfilesTable.grantReadWriteData(func);
+      this.auditLogTable.grantWriteData(func);
+      this.companiesTable.grantReadWriteData(func);
+    });
+
+    // Grant permissions to Cognito trigger functions
+    [postConfirmationFunction, preSignUpFunction].forEach(func => {
+      this.tenantsTable.grantReadWriteData(func);
+      this.userProfilesTable.grantReadWriteData(func);
+      this.auditLogTable.grantWriteData(func);
+    });
+
+    // Add Cognito triggers
+    this.userPool.addTrigger(cognito.UserPoolOperation.POST_CONFIRMATION, postConfirmationFunction);
+    this.userPool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUpFunction);
+
+    // Output Lambda function ARNs
+    new cdk.CfnOutput(this, 'CreateTenantFunctionArn', {
+      value: createTenantFunction.functionArn,
+      description: 'ARN of the Create Tenant Lambda function',
+      exportName: 'govbizai-create-tenant-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'UpdateTenantFunctionArn', {
+      value: updateTenantFunction.functionArn,
+      description: 'ARN of the Update Tenant Lambda function',
+      exportName: 'govbizai-update-tenant-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'DeleteTenantFunctionArn', {
+      value: deleteTenantFunction.functionArn,
+      description: 'ARN of the Delete Tenant Lambda function',
+      exportName: 'govbizai-delete-tenant-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'GetTenantFunctionArn', {
+      value: getTenantFunction.functionArn,
+      description: 'ARN of the Get Tenant Lambda function',
+      exportName: 'govbizai-get-tenant-function-arn',
+    });
   }
 
   private createVpcEndpointSecurityGroup(): ec2.SecurityGroup {
@@ -545,6 +976,8 @@ export class InfrastructureStack extends cdk.Stack {
                 `${this.auditLogTable.tableArn}/index/*`,
                 this.feedbackTable.tableArn,
                 `${this.feedbackTable.tableArn}/index/*`,
+                this.tenantsTable.tableArn,
+                `${this.tenantsTable.tableArn}/index/*`,
               ],
             }),
             new iam.PolicyStatement({
@@ -566,6 +999,18 @@ export class InfrastructureStack extends cdk.Stack {
                 'textract:GetDocumentAnalysis',
               ],
               resources: ['*'],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cognito-idp:AdminGetUser',
+                'cognito-idp:AdminUpdateUserAttributes',
+                'cognito-idp:AdminSetUserPassword',
+                'cognito-idp:AdminCreateUser',
+                'cognito-idp:AdminDeleteUser',
+                'cognito-idp:ListUsers',
+              ],
+              resources: [this.userPool.userPoolArn],
             }),
           ],
         }),
