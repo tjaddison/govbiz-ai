@@ -28,12 +28,13 @@ export class InfrastructureStack extends cdk.Stack {
   public userPool: cognito.UserPool;
   public userPoolClient: cognito.UserPoolClient;
   public identityPool: cognito.CfnIdentityPool;
+  private readonly kmsKey: kms.Key;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
     // Create KMS key for encryption
-    const kmsKey = new kms.Key(this, 'govbizai-encryption-key', {
+    this.kmsKey = new kms.Key(this, 'govbizai-encryption-key', {
       alias: 'govbizai-encryption-key',
       description: 'KMS key for GovBizAI system encryption',
       enableKeyRotation: true,
@@ -41,7 +42,7 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     // Add policy to allow CloudWatch Logs to use the KMS key
-    kmsKey.addToResourcePolicy(new iam.PolicyStatement({
+    this.kmsKey.addToResourcePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal(`logs.${this.region}.amazonaws.com`)],
       actions: [
@@ -60,7 +61,7 @@ export class InfrastructureStack extends cdk.Stack {
     }));
 
     // Add policy to allow CloudTrail to use the KMS key
-    kmsKey.addToResourcePolicy(new iam.PolicyStatement({
+    this.kmsKey.addToResourcePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       principals: [new iam.ServicePrincipal(`cloudtrail.amazonaws.com`)],
       actions: [
@@ -164,7 +165,7 @@ export class InfrastructureStack extends cdk.Stack {
     // 3. Create S3 Buckets with encryption and lifecycle policies
     const s3BucketProps: Partial<s3.BucketProps> = {
       encryption: s3.BucketEncryption.KMS,
-      encryptionKey: kmsKey,
+      encryptionKey: this.kmsKey,
       versioned: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
@@ -267,7 +268,7 @@ export class InfrastructureStack extends cdk.Stack {
     // 4. Create DynamoDB Tables
     const dynamoDbProps: Partial<dynamodb.TableProps> = {
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
-      encryptionKey: kmsKey,
+      encryptionKey: this.kmsKey,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true
@@ -512,6 +513,9 @@ export class InfrastructureStack extends cdk.Stack {
 
     // 9. Create IAM roles and policies
     this.createIAMRoles();
+
+    // 10. Create embedding generation and vector storage infrastructure
+    // this.createEmbeddingInfrastructure(); // Temporarily commented out to resolve circular dependency
 
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
@@ -1284,6 +1288,257 @@ export class InfrastructureStack extends cdk.Stack {
       value: documentProcessingLayer.layerVersionArn,
       description: 'ARN of the Document Processing Lambda Layer',
       exportName: 'govbizai-document-processing-layer-arn',
+    });
+  }
+
+  private createEmbeddingInfrastructure(): void {
+    // Create vector index tables for fast similarity search
+    const dynamoDbProps: Partial<dynamodb.TableProps> = {
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.kmsKey,
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true
+      },
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For dev environment
+    };
+
+    const vectorIndexTable = new dynamodb.Table(this, 'govbizai-vector-index', {
+      tableName: 'govbizai-vector-index',
+      partitionKey: {
+        name: 'entity_type', // 'opportunity' or 'company'
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'entity_id',
+        type: dynamodb.AttributeType.STRING
+      },
+      ...dynamoDbProps,
+    });
+
+    // Add GSI for metadata filtering
+    vectorIndexTable.addGlobalSecondaryIndex({
+      indexName: 'metadata-index',
+      partitionKey: {
+        name: 'entity_type',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'created_at',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
+    // Create IAM role for Bedrock Knowledge Base
+    const knowledgeBaseRole = new iam.Role(this, 'govbizai-knowledge-base-role', {
+      roleName: 'govbizai-knowledge-base-role',
+      assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
+      inlinePolicies: {
+        'govbizai-knowledge-base-policy': new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'bedrock:InvokeModel',
+                'bedrock:InvokeModelWithResponseStream',
+              ],
+              resources: [
+                `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+              ],
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                's3:GetObject',
+                's3:PutObject',
+                's3:DeleteObject',
+                's3:ListBucket',
+              ],
+              resources: [
+                this.embeddingsBucket.bucketArn,
+                `${this.embeddingsBucket.bucketArn}/*`,
+              ],
+            }),
+          ],
+        }),
+      },
+    });
+
+    // Create a new managed policy for embedding operations
+    const embeddingPolicy = new iam.ManagedPolicy(this, 'govbizai-embedding-policy', {
+      managedPolicyName: 'govbizai-embedding-policy',
+      description: 'Policy for embedding generation and search operations',
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'bedrock:InvokeModel',
+            'bedrock:InvokeModelWithResponseStream',
+          ],
+          resources: [
+            `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+          ],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            's3:GetObject',
+            's3:PutObject',
+            's3:DeleteObject',
+            's3:ListBucket',
+          ],
+          resources: [
+            this.embeddingsBucket.bucketArn,
+            `${this.embeddingsBucket.bucketArn}/*`,
+          ],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:PutItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:Query',
+            'dynamodb:Scan',
+          ],
+          resources: [
+            vectorIndexTable.tableArn,
+            `${vectorIndexTable.tableArn}/index/*`,
+          ],
+        }),
+      ],
+    });
+
+    // Create IAM role for embedding Lambda functions
+    const embeddingLambdaRole = new iam.Role(this, 'govbizai-embedding-lambda-role', {
+      roleName: 'govbizai-embedding-lambda-role',
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+        embeddingPolicy,
+      ],
+    });
+
+    // Create embedding generation Lambda function
+    const embeddingLayer = new lambda.LayerVersion(this, 'govbizai-embedding-layer', {
+      layerVersionName: 'govbizai-embedding-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/embedding')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Embedding generation dependencies including boto3, numpy, tiktoken',
+    });
+
+    const embeddingGenerationFunction = new lambda.Function(this, 'govbizai-embedding-generation', {
+      functionName: 'govbizai-embedding-generation',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/embedding/embedding-generation')),
+      handler: 'handler.lambda_handler',
+      description: 'Generate embeddings using Amazon Bedrock Titan Text Embeddings V2',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      role: embeddingLambdaRole,
+      environment: {
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+        COMPANIES_TABLE: this.companiesTable.tableName,
+        VECTOR_INDEX_TABLE: vectorIndexTable.tableName,
+        BEDROCK_MODEL_ARN: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+      },
+      layers: [embeddingLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    });
+
+    // Create semantic search function
+    const semanticSearchFunction = new lambda.Function(this, 'govbizai-semantic-search', {
+      functionName: 'govbizai-semantic-search',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/embedding/semantic-search')),
+      handler: 'handler.lambda_handler',
+      description: 'Perform semantic search using Bedrock Knowledge Bases',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      role: embeddingLambdaRole,
+      environment: {
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        VECTOR_INDEX_TABLE: vectorIndexTable.tableName,
+        BEDROCK_MODEL_ARN: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+      },
+      layers: [embeddingLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    });
+
+    // Create hybrid search function
+    const hybridSearchFunction = new lambda.Function(this, 'govbizai-hybrid-search', {
+      functionName: 'govbizai-hybrid-search',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/embedding/hybrid-search')),
+      handler: 'handler.lambda_handler',
+      description: 'Perform hybrid search combining semantic and keyword matching',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      role: embeddingLambdaRole,
+      environment: {
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        VECTOR_INDEX_TABLE: vectorIndexTable.tableName,
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+        COMPANIES_TABLE: this.companiesTable.tableName,
+        SEMANTIC_SEARCH_FUNCTION: 'govbizai-semantic-search', // Use static function name instead of reference
+      },
+      layers: [embeddingLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    });
+
+    // Grant additional permissions for the hybrid search function to call other functions
+    this.opportunitiesTable.grantReadData(hybridSearchFunction);
+    this.companiesTable.grantReadData(hybridSearchFunction);
+
+    // Grant invoke permissions
+    semanticSearchFunction.grantInvoke(hybridSearchFunction);
+
+    // Output the infrastructure ARNs
+    new cdk.CfnOutput(this, 'VectorIndexTableName', {
+      value: vectorIndexTable.tableName,
+      description: 'Name of the Vector Index DynamoDB table',
+      exportName: 'govbizai-vector-index-table-name',
+    });
+
+    new cdk.CfnOutput(this, 'EmbeddingsBucketName', {
+      value: this.embeddingsBucket.bucketName,
+      description: 'Name of the Embeddings S3 bucket',
+      exportName: 'govbizai-embeddings-bucket-name',
+    });
+
+    new cdk.CfnOutput(this, 'EmbeddingGenerationFunctionArn', {
+      value: embeddingGenerationFunction.functionArn,
+      description: 'ARN of the Embedding Generation Lambda function',
+      exportName: 'govbizai-embedding-generation-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'SemanticSearchFunctionArn', {
+      value: semanticSearchFunction.functionArn,
+      description: 'ARN of the Semantic Search Lambda function',
+      exportName: 'govbizai-semantic-search-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'HybridSearchFunctionArn', {
+      value: hybridSearchFunction.functionArn,
+      description: 'ARN of the Hybrid Search Lambda function',
+      exportName: 'govbizai-hybrid-search-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'EmbeddingLayerArn', {
+      value: embeddingLayer.layerVersionArn,
+      description: 'ARN of the Embedding Lambda Layer',
+      exportName: 'govbizai-embedding-layer-arn',
     });
   }
 }
