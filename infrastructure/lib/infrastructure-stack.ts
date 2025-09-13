@@ -14,7 +14,10 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
 import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+// API Gateway imports kept for other APIs in this stack
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+// import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
+// import * as apigatewayv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as path from 'path';
 
 export class InfrastructureStack extends cdk.Stack {
@@ -34,6 +37,10 @@ export class InfrastructureStack extends cdk.Stack {
   public userPool: cognito.UserPool;
   public userPoolClient: cognito.UserPoolClient;
   public identityPool: cognito.CfnIdentityPool;
+  // Moved to ApiStack to avoid CloudFormation resource limits
+  // public restApi: apigateway.RestApi;
+  // public webSocketApi: apigatewayv2.WebSocketApi;
+  // public connectionsTable: dynamodb.Table;
   private readonly kmsKey: kms.Key;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -531,6 +538,10 @@ export class InfrastructureStack extends cdk.Stack {
 
     // 13. Create Phase 7: Matching Engine Functions
     this.createMatchingEngineFunctions();
+
+    // 14. Create Phase 10: API Gateway Infrastructure
+    // Moved to separate ApiStack to avoid CloudFormation resource limits
+    // this.createApiGatewayInfrastructure();
 
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
@@ -2882,5 +2893,14 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     return enhancedStateMachine;
+  }
+
+// Create the stub method
+
+  // API Gateway infrastructure moved to separate ApiStack to avoid CloudFormation resource limits
+  private createApiGatewayInfrastructure(): void {
+    // This method has been temporarily disabled due to CloudFormation resource limits
+    // The API Gateway infrastructure will be moved to a separate ApiStack
+    console.log('API Gateway infrastructure moved to separate stack to avoid resource limits');
   }
 }

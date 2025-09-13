@@ -1,0 +1,21 @@
+{
+  "name": "govbizai-api-tests",
+  "version": "1.0.0",
+  "description": "API validation tests for GovBizAI Phase 10 implementation",
+  "scripts": {
+    "test": "jest",
+    "test:infrastructure": "jest infrastructure-validation.test.ts",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "22.7.9",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "~5.6.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.211.0",
+    "constructs": "^10.4.2"
+  }
+}

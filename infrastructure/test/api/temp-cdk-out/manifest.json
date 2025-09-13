@@ -1,0 +1,3029 @@
+{
+  "version": "48.0.0",
+  "artifacts": {
+    "TestInfrastructureStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "TestInfrastructureStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "TestInfrastructureStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "TestInfrastructureStack.template.json",
+        "terminationProtection": false,
+        "tags": {
+          "Environment": "dev",
+          "ManagedBy": "CDK",
+          "Project": "govbizai"
+        },
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/ac484e7f5b4791a0ec4cf8e8a0a45ad17dc4345f1f7648dae7eb8c7f02813a4f.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "TestInfrastructureStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "TestInfrastructureStack.assets"
+      ],
+      "metadata": {
+        "/TestInfrastructureStack": [
+          {
+            "type": "aws:cdk:stack-tags",
+            "data": [
+              {
+                "Key": "Environment",
+                "Value": "dev"
+              },
+              {
+                "Key": "ManagedBy",
+                "Value": "CDK"
+              },
+              {
+                "Key": "Project",
+                "Value": "govbizai"
+              }
+            ]
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-encryption-key/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiencryptionkeyC77D74E4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-encryption-key/Alias/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiencryptionkeyAlias19258499"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcC82B5B04"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1Subnet7171BD1B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1RouteTableB90BAA78"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1RouteTableAssociation67A23F4C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1DefaultRouteAAAAE712"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/EIP": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1EIP54986573"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet1/NATGateway": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet1NATGatewayBC304E83"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2SubnetAD54449B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2RouteTable6CB4905C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2RouteTableAssociationFB0E7F75"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2DefaultRoute12B616BC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/EIP": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2EIP1F41A622"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-public-subnetSubnet2/NATGateway": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaipublicsubnetSubnet2NATGatewayA4B62B2D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet1Subnet22BEE1F8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet1RouteTableBD20F7E4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet1RouteTableAssociation09F9AEB4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet1/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet1DefaultRoute8918BD88"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet2Subnet5E86CC4D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet2RouteTable619D4450"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet2RouteTableAssociation63B8C758"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-private-subnetSubnet2/DefaultRoute": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiprivatesubnetSubnet2DefaultRoute6488C86C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet1/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet1Subnet781E2D84"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet1/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet1RouteTable31F6002D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet1/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet1RouteTableAssociation61D0E243"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet2/Subnet": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet2Subnet5F032299"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet2/RouteTable": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet2RouteTableFA721D3A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/govbizai-isolated-subnetSubnet2/RouteTableAssociation": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcgovbizaiisolatedsubnetSubnet2RouteTableAssociationCFD06DD3"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/IGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcIGWB32B4CD2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/VPCGW": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcVPCGWF58BCFC6"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/s3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcs36E2CF0DF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc/dynamodb/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcdynamodb2E696A6C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-vpc-endpoint-sg/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaivpcendpointsgBFFB67C4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-bedrock-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibedrockendpoint0548617D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-bedrock-runtime-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibedrockruntimeendpointC5313AC9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-lambda-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizailambdaendpointF68586A0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-sqs-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisqsendpoint63FE92C4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-sns-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisnsendpoint42CED390"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudwatch-logs-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudwatchlogsendpoint9725A2F5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-step-functions-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaistepfunctionsendpoint17AEBF41"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-eventbridge-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaieventbridgeendpointE04FEC33"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-textract-endpoint/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextractendpoint20CF986D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-raw-documents/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairawdocumentsC6263907"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-raw-documents/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairawdocumentsPolicy97E60CFC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-raw-documents/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairawdocumentsAutoDeleteObjectsCustomResource0A1B78A4"
+          }
+        ],
+        "/TestInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider": [
+          {
+            "type": "aws:cdk:is-custom-resource-handler-customResourceProvider",
+            "data": true
+          }
+        ],
+        "/TestInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092"
+          }
+        ],
+        "/TestInfrastructureStack/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processed-documents/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocesseddocumentsEB84F3C4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processed-documents/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocesseddocumentsPolicy24FAD4DB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processed-documents/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocesseddocumentsAutoDeleteObjectsCustomResource39379270"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embeddings/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddings9C1E2D0C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embeddings/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingsPolicy7BD36E2E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embeddings/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingsAutoDeleteObjectsCustomResource510AF300"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-temp-processing/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitempprocessing8660E60C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-temp-processing/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitempprocessingPolicyC352D29A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-temp-processing/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitempprocessingAutoDeleteObjectsCustomResource34858E76"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-archive/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiarchive5B5E91E9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-archive/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiarchivePolicy3285076F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-archive/AutoDeleteObjectsCustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiarchiveAutoDeleteObjectsCustomResource0C1D299B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunities": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaiopportunities87C89AB3"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunities/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunities87C89AB3"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-companies": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaicompaniesEF47080E"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-companies/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicompaniesEF47080E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matches": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaimatches22EB0E45"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matches/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatches22EB0E45"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-profiles": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaiuserprofiles6B97A1D0"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-profiles/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserprofiles6B97A1D0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-audit-log": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaiauditlog8C2898B9"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-audit-log/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiauditlog8C2898B9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-feedback": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaifeedbackA5E7768E"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-feedback/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaifeedbackA5E7768E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-tenants": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaitenantsA724F50D"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-tenants/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitenantsA724F50D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail-log-group/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailloggroup162648EF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail/S3/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailS3D3F47E33"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail/S3/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailS3Policy55854313"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail/LogsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailLogsRoleF1686EF2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail/LogsRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailLogsRoleDefaultPolicy68739B5B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cloudtrail/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicloudtrailC0AECAA4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool/smsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpoolsmsRoleF26FED2D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpool36C7E10A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool/PostConfirmationCognito": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpoolPostConfirmationCognito7983BE94"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool/PreSignUpCognito": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpoolPreSignUpCognito4A16EB3C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool-domain/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpooldomainFCB1ACC2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-user-pool-client/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuserpoolclientBE0A385B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-identity-pool": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiidentitypool"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-cognito-authenticated-role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicognitoauthenticatedroleA265FB82"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-identity-pool-role-attachment": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiidentitypoolroleattachment"
+          }
+        ],
+        "/TestInfrastructureStack/UserPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolId"
+          }
+        ],
+        "/TestInfrastructureStack/UserPoolClientId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClientId"
+          }
+        ],
+        "/TestInfrastructureStack/IdentityPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "IdentityPoolId"
+          }
+        ],
+        "/TestInfrastructureStack/UserPoolDomain": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolDomain"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-common-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicommonlayer61433DB8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-create-tenant/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicreatetenantServiceRole89C096AE"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-create-tenant/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicreatetenantServiceRoleDefaultPolicy941F4329"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-create-tenant/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicreatetenantSecurityGroup2C9BFB05"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-create-tenant/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicreatetenantA6EE1C83"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-update-tenant/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiupdatetenantServiceRoleAE4C6735"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-update-tenant/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiupdatetenantServiceRoleDefaultPolicy36C88447"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-update-tenant/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiupdatetenantSecurityGroup5863571B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-update-tenant/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiupdatetenant4465400B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-delete-tenant/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaideletetenantServiceRole900B08B2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-delete-tenant/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaideletetenantServiceRoleDefaultPolicy95751350"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-delete-tenant/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaideletetenantSecurityGroupD58204EE"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-delete-tenant/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaideletetenant7284722D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-get-tenant/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigettenantServiceRole8EDBD948"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-get-tenant/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigettenantServiceRoleDefaultPolicy262EFEC1"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-get-tenant/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigettenantSecurityGroup434E3E6C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-get-tenant/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigettenant1C7B9A38"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-post-confirmation/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipostconfirmationServiceRoleA69B8E0C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-post-confirmation/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipostconfirmationServiceRoleDefaultPolicyE2365E57"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-post-confirmation/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipostconfirmation6D22F3BD"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-pre-sign-up/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipresignupServiceRole24DFC433"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-pre-sign-up/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipresignupServiceRoleDefaultPolicyEB4ABD44"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-pre-sign-up/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipresignup74411E2A"
+          }
+        ],
+        "/TestInfrastructureStack/CreateTenantFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CreateTenantFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/UpdateTenantFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UpdateTenantFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/DeleteTenantFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DeleteTenantFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/GetTenantFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetTenantFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-processing-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentprocessinglayer39856FE2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-extraction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextextractionServiceRole95CCE328"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-extraction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextextractionServiceRoleDefaultPolicyCC07BCE9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-extraction/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextextractionSecurityGroup512FB609"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-extraction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextextraction0C176196"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-textract-processor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextractprocessorServiceRole3ADF62DB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-textract-processor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextractprocessorServiceRoleDefaultPolicy93382A5B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-textract-processor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextractprocessorSecurityGroup1F0662ED"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-textract-processor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextractprocessor559DCF0C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-cleaner/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextcleanerServiceRole19E2542A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-cleaner/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextcleanerServiceRoleDefaultPolicy3F964225"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-cleaner/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextcleanerSecurityGroup0CA116EB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-text-cleaner/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaitextcleaner06583528"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-chunker/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentchunkerServiceRole174290E2"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-chunker/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentchunkerServiceRoleDefaultPolicy6C76B6BE"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-chunker/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentchunkerSecurityGroup66161514"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-chunker/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentchunker87A36F3D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-file-handlers/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaifilehandlersServiceRole843FA6B5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-file-handlers/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaifilehandlersServiceRoleDefaultPolicy395A56C4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-file-handlers/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaifilehandlersSecurityGroupBA0EAC12"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-file-handlers/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaifilehandlers2E6047C4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-unified-processor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiunifiedprocessorServiceRoleE5FEDC2C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-unified-processor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiunifiedprocessorServiceRoleDefaultPolicyE6AD7EF8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-unified-processor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiunifiedprocessorSecurityGroup3F18A05A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-unified-processor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiunifiedprocessor2109B988"
+          }
+        ],
+        "/TestInfrastructureStack/TextExtractionFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TextExtractionFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/TextractProcessorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TextractProcessorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/TextCleanerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TextCleanerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/DocumentChunkerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DocumentChunkerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/FileHandlersFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FileHandlersFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/UnifiedProcessorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UnifiedProcessorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/DocumentProcessingLayerArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DocumentProcessingLayerArn"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-lambda-execution-role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizailambdaexecutionrole23B5D5E8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-step-functions-role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaistepfunctionsrole7E7C04ED"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-eventbridge-role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaieventbridgerole2252CEC9"
+          }
+        ],
+        "/TestInfrastructureStack/LambdaExecutionRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "LambdaExecutionRoleArn"
+          }
+        ],
+        "/TestInfrastructureStack/StepFunctionsExecutionRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "StepFunctionsExecutionRoleArn"
+          }
+        ],
+        "/TestInfrastructureStack/EventBridgeExecutionRoleArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EventBridgeExecutionRoleArn"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovlayerE234361B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processing-dlq/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessingdlqBC2F7D9A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processing-queue/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessingqueueA25C3C4F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-csv-processor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicsvprocessorServiceRole0F060C40"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-csv-processor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicsvprocessorServiceRoleDefaultPolicyC5D6B8C7"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-csv-processor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicsvprocessorSecurityGroupC80D8CFF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-csv-processor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicsvprocessorE4C498A4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-api-client/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovapiclientServiceRole61DC75B8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-api-client/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovapiclientServiceRoleDefaultPolicy89838494"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-api-client/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovapiclientSecurityGroupD94BA827"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-api-client/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovapiclientD137678A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-attachment-downloader/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiattachmentdownloaderServiceRole5D4ACF64"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-attachment-downloader/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiattachmentdownloaderServiceRoleDefaultPolicyF7A4D9F4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-attachment-downloader/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiattachmentdownloaderSecurityGroup5D490164"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-attachment-downloader/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiattachmentdownloaderCB0D7297"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessorServiceRole067EC6C5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessorServiceRoleDefaultPolicy6F16A3A5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessorSecurityGroup3F18D452"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-opportunity-processor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiopportunityprocessorE3114360"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionServiceRole296EC6D7"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionServiceRoleDefaultPolicyACB78832"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionSecurityGroup46AFABD3"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionB54F2C67"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-orchestrator/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovorchestratorServiceRole2E927FA6"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-orchestrator/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovorchestratorServiceRoleDefaultPolicy8CF17B1F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-orchestrator/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovorchestratorSecurityGroup5157016D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-samgov-orchestrator/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisamgovorchestrator3A18D42F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine-logs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachinelogsF56F3F6E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineRole3B667984"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineRoleDefaultPolicyD88C8811"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineF42BD87C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/DistributedMapPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineDistributedMapPolicy0CFEC373"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/EventsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineEventsRole4457CD0B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-processing-state-machine/EventsRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprocessingstatemachineEventsRoleDefaultPolicyBAF2150A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-nightly-processing-rule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizainightlyprocessingrule452CF89C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention-rule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionruleB4FB315A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-data-retention-rule/AllowEventRuleTestInfrastructureStackgovbizaidataretention17269923": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidataretentionruleAllowEventRuleTestInfrastructureStackgovbizaidataretention17269923FE7D6FBD"
+          }
+        ],
+        "/TestInfrastructureStack/CsvProcessorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CsvProcessorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/SamgovApiClientFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SamgovApiClientFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/AttachmentDownloaderFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AttachmentDownloaderFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/OpportunityProcessorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OpportunityProcessorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/DataRetentionFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DataRetentionFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/SamgovOrchestratorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SamgovOrchestratorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/ProcessingStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProcessingStateMachineArn"
+          }
+        ],
+        "/TestInfrastructureStack/OpportunityProcessingQueueUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "OpportunityProcessingQueueUrl"
+          }
+        ],
+        "/TestInfrastructureStack/SamgovLayerArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SamgovLayerArn"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-company-profile-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicompanyprofilelayerA55DC6C5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-presigned-url/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadpresignedurlServiceRole3BECF939"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-presigned-url/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadpresignedurlServiceRoleDefaultPolicyB528EC84"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-presigned-url/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadpresignedurlSecurityGroupFF37A384"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-presigned-url/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadpresignedurl733AD037"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-multipart-upload/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimultipartuploadServiceRole4A0E3A89"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-multipart-upload/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimultipartuploadServiceRoleDefaultPolicyF39B0A03"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-multipart-upload/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimultipartuploadSecurityGroupB995DCFA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-multipart-upload/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimultipartuploadB5024102"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-progress/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadprogressServiceRole7A28B914"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-progress/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadprogressServiceRoleDefaultPolicy9E487EF1"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-progress/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadprogressSecurityGroupFA936065"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-upload-progress/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiuploadprogressEE5C4774"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schema-validator/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischemavalidatorServiceRole1D36BA92"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schema-validator/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischemavalidatorServiceRoleDefaultPolicyE1510F6C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schema-validator/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischemavalidatorSecurityGroupA78054CC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schema-validator/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischemavalidator574DAA1D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-categorizer/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentcategorizerServiceRole69348B81"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-categorizer/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentcategorizerServiceRoleDefaultPolicyCB06E0B7"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-categorizer/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentcategorizerSecurityGroup0A6C8D38"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-document-categorizer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaidocumentcategorizer039E902D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-resume-parser/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairesumeparserServiceRoleB962D2FC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-resume-parser/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairesumeparserServiceRoleDefaultPolicy3AC2B47D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-resume-parser/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairesumeparserSecurityGroupD80C15C5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-resume-parser/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairesumeparser269291CA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capability-processor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapabilityprocessorServiceRoleA36E32D5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capability-processor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapabilityprocessorServiceRoleDefaultPolicyB53218AA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capability-processor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapabilityprocessorSecurityGroup6943A798"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capability-processor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapabilityprocessor716CDA66"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-website-scraper/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiwebsitescraperServiceRole7AC71D11"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-website-scraper/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiwebsitescraperServiceRoleDefaultPolicyB0879F68"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-website-scraper/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiwebsitescraperSecurityGroup073C2FBB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-website-scraper/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiwebsitescraper3BFF460F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embedding-strategy/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingstrategyServiceRole6CABE457"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embedding-strategy/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingstrategyServiceRoleDefaultPolicy4F3D624E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embedding-strategy/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingstrategySecurityGroup3E22B25B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-embedding-strategy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiembeddingstrategyD53F1286"
+          }
+        ],
+        "/TestInfrastructureStack/UploadPresignedUrlFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadPresignedUrlFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/MultipartUploadFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MultipartUploadFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/UploadProgressFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadProgressFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/SchemaValidatorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SchemaValidatorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/DocumentCategorizerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "DocumentCategorizerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/ResumeParserFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ResumeParserFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/CapabilityProcessorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CapabilityProcessorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/WebsiteScraperFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "WebsiteScraperFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/EmbeddingStrategyFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EmbeddingStrategyFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/CompanyProfileLayerArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CompanyProfileLayerArn"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-engine-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingenginelayer6D9F158E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-cache": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaimatchcache4369A744"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-cache/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchcache4369A744"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-semantic-similarity/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisemanticsimilarityServiceRole57D25F8B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-semantic-similarity/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisemanticsimilarityServiceRoleDefaultPolicy95C08C5F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-semantic-similarity/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisemanticsimilaritySecurityGroupA9776FDB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-semantic-similarity/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaisemanticsimilarityDB6B985A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-keyword-matching/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaikeywordmatchingServiceRole510AFA90"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-keyword-matching/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaikeywordmatchingServiceRoleDefaultPolicy0F144605"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-keyword-matching/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaikeywordmatchingSecurityGroupADACBB6B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-keyword-matching/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaikeywordmatching0DEC26F4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-naics-alignment/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizainaicsalignmentServiceRoleFAE75B6B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-naics-alignment/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizainaicsalignmentServiceRoleDefaultPolicy3B6D784A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-naics-alignment/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizainaicsalignmentSecurityGroup9B04C2F8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-naics-alignment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizainaicsalignmentE3D11B46"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-past-performance/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipastperformanceServiceRole7CF6F4DF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-past-performance/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipastperformanceServiceRoleDefaultPolicyB00D0697"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-past-performance/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipastperformanceSecurityGroupC1F84189"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-past-performance/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaipastperformance68675781"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-certification-bonus/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicertificationbonusServiceRole1C66F863"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-certification-bonus/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicertificationbonusServiceRoleDefaultPolicyD537650B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-certification-bonus/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicertificationbonusSecurityGroupAA37E3BC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-certification-bonus/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicertificationbonus21E6EE86"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-geographic-match/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigeographicmatchServiceRole75F57FDC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-geographic-match/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigeographicmatchServiceRoleDefaultPolicyB7C2C687"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-geographic-match/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigeographicmatchSecurityGroupEC9003CF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-geographic-match/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaigeographicmatch5E81C651"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capacity-fit/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapacityfitServiceRole3F14982D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capacity-fit/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapacityfitServiceRoleDefaultPolicy4BDD4B8D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capacity-fit/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapacityfitSecurityGroup9BD0AE3B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-capacity-fit/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaicapacityfitF94A514F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-recency-factor/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairecencyfactorServiceRoleA3318C22"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-recency-factor/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairecencyfactorServiceRoleDefaultPolicy762434B0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-recency-factor/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairecencyfactorSecurityGroup1098EA4F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-recency-factor/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizairecencyfactor6CD38D36"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-quick-filter/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiquickfilterServiceRole6DCBE038"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-quick-filter/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiquickfilterServiceRoleDefaultPolicyFD4876D8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-quick-filter/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiquickfilterSecurityGroup391EBF44"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-quick-filter/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiquickfilterEB9D4EF7"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-orchestrator/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchorchestratorServiceRoleCC64E38B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-orchestrator/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchorchestratorServiceRoleDefaultPolicy8DA9333D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-orchestrator/SecurityGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchorchestratorSecurityGroup7F8F2E86"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-match-orchestrator/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchorchestratorC15BB73B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-matching-dlq/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchmatchingdlqB25C2077"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-matching-queue/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchmatchingqueue2199B9CE"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapi6A20D473"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiCloudWatchRole6D42C8B6"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiAccountE04B6A89"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiDeployment3DF773EA12fd9a6498af447c4714644ad959da5c"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiDeploymentStageprodF1E7177F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiEndpointD9C633FD"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapiOPTIONS09407AE3"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/match/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapimatch91443665"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/match/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapimatchOPTIONSCD2EA8DF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/match/POST/ApiPermission.TestInfrastructureStackgovbizaimatchingapiE33BF68C.POST..match": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapimatchPOSTApiPermissionTestInfrastructureStackgovbizaimatchingapiE33BF68CPOSTmatch2E836CE4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/match/POST/ApiPermission.Test.TestInfrastructureStackgovbizaimatchingapiE33BF68C.POST..match": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapimatchPOSTApiPermissionTestTestInfrastructureStackgovbizaimatchingapiE33BF68CPOSTmatch8BD9782B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api/Default/match/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapimatchPOST64ACA1BA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-authorizer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingauthorizer90696A09"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-api-key/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingapikey48DB3AFB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-usage-plan/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingusageplanC69309D3"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-matching-usage-plan/UsagePlanKeyResource:TestInfrastructureStackgovbizaimatchingapikey1F4574B9": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaimatchingusageplanUsagePlanKeyResourceTestInfrastructureStackgovbizaimatchingapikey1F4574B98074CCED"
+          }
+        ],
+        "/TestInfrastructureStack/SemanticSimilarityFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SemanticSimilarityFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/KeywordMatchingFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "KeywordMatchingFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/NAICSAlignmentFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "NAICSAlignmentFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/PastPerformanceFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PastPerformanceFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/CertificationBonusFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CertificationBonusFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/GeographicMatchFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GeographicMatchFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/CapacityFitFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CapacityFitFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/RecencyFactorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RecencyFactorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/QuickFilterFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "QuickFilterFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/MatchOrchestratorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MatchOrchestratorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/MatchingEngineLayerArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MatchingEngineLayerArn"
+          }
+        ],
+        "/TestInfrastructureStack/MatchCacheTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MatchCacheTableName"
+          }
+        ],
+        "/TestInfrastructureStack/BatchMatchingQueueUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchMatchingQueueUrl"
+          }
+        ],
+        "/TestInfrastructureStack/MatchingApiEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MatchingApiEndpoint"
+          }
+        ],
+        "/TestInfrastructureStack/MatchingApiKey": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MatchingApiKey"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordination": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaibatchcoordination6E6DAA30"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordination/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordination6E6DAA30"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-progress-tracking": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaiprogresstrackingCE98B3BF"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-progress-tracking/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprogresstrackingCE98B3BF"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-optimization-history": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaibatchoptimizationhistoryD86040AB"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-optimization-history/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchoptimizationhistoryD86040AB"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schedule-management": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "govbizaischedulemanagementE696443A"
+            }
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schedule-management/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischedulemanagementE696443A"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordination-dlq/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordinationdlq94776801"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordination-queue/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordinationqueueBCD854C6"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-layer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationlayer389F2B23"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-optimizer-function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchoptimizerfunctionServiceRoleC08D4F4D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-optimizer-function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchoptimizerfunctionServiceRoleDefaultPolicy7C0F422F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-optimizer-function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchoptimizerfunction6E4BA428"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordinator-function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordinatorfunctionServiceRole5A25ACBA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordinator-function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordinatorfunctionServiceRoleDefaultPolicy64065E64"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-coordinator-function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchcoordinatorfunction3A0B477D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-progress-tracker-function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprogresstrackerfunctionServiceRole94B73BD9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-progress-tracker-function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprogresstrackerfunctionServiceRoleDefaultPolicyDAAA3D23"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-progress-tracker-function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaiprogresstrackerfunction971A3D14"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schedule-manager-function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischedulemanagerfunctionServiceRoleC6CF02C7"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schedule-manager-function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischedulemanagerfunctionServiceRoleDefaultPolicy3188A896"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-schedule-manager-function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaischedulemanagerfunction1E885BCC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-logs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessinglogs87C4E77C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-state-machine/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessingstatemachineRole49755F09"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-state-machine/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessingstatemachineRoleDefaultPolicyFEE62B88"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-state-machine/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessingstatemachine93FE10C0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-state-machine/EventsRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessingstatemachineEventsRole84E26938"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-processing-state-machine/EventsRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancedprocessingstatemachineEventsRoleDefaultPolicyD7BF2D05"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-enhanced-nightly-processing-rule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaienhancednightlyprocessingrule2476B237"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapi784AFF7C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/CloudWatchRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiCloudWatchRoleAFD732D6"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Account": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiAccount7AEC5712"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Deployment/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiDeployment7C57D11963be6093014c93febb052664f487e654"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/DeploymentStage.prod/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiDeploymentStageprod5243BDFD"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Endpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiEndpointA0F82420"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapiOPTIONS272EE655"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchB919BE43"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchOPTIONSDAF88B59"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/optimizer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchoptimizer22E4487C"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/optimizer/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchoptimizerOPTIONS1704A8A8"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/optimizer/POST/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.optimizer": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchoptimizerPOSTApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchoptimizer22229FE5"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/optimizer/POST/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.optimizer": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchoptimizerPOSTApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchoptimizer62F29686"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/optimizer/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchoptimizerPOSTF24449DC"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/coordinator/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchcoordinatorAFE05993"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/coordinator/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchcoordinatorOPTIONSE86D8C9F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/coordinator/POST/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.coordinator": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchcoordinatorPOSTApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchcoordinator6D90B740"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/coordinator/POST/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.coordinator": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchcoordinatorPOSTApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchcoordinatorB2354DC0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/coordinator/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchcoordinatorPOST2FE2A632"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressC3F2A572"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressOPTIONSEFE2A31F"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/GET/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.GET..batch.progress": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressGETApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1GETbatchprogress1D67EF1E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/GET/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.GET..batch.progress": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressGETApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1GETbatchprogress3C3D2820"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressGET10CDAD1D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/POST/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.progress": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressPOSTApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchprogressB383835B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/POST/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.progress": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressPOSTApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchprogress56AF0452"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/progress/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchprogressPOST67017645"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedule6814F40B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/OPTIONS/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleOPTIONSC75B25CA"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/GET/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.GET..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleGETApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1GETbatchschedule952E672B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/GET/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.GET..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleGETApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1GETbatchschedule2D305E36"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/GET/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleGET1F888A9D"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/POST/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePOSTApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchschedule1DF9ED27"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/POST/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.POST..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePOSTApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1POSTbatchschedule3CE9BC10"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/POST/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePOSTF3F5B0B9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/PUT/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.PUT..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePUTApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1PUTbatchschedule97272E5E"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/PUT/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.PUT..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePUTApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1PUTbatchschedule19A62334"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/PUT/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchschedulePUT20574E2B"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/DELETE/ApiPermission.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.DELETE..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleDELETEApiPermissionTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1DELETEbatchscheduleAECB5253"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/DELETE/ApiPermission.Test.TestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1.DELETE..batch.schedule": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleDELETEApiPermissionTestTestInfrastructureStackgovbizaibatchorchestrationapiE83D08E1DELETEbatchschedule7BFCCC02"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/Default/batch/schedule/DELETE/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapibatchscheduleDELETE06694BD9"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/govbizai-batch-api-key/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapigovbizaibatchapikeyC78132A4"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/govbizai-batch-usage-plan/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapigovbizaibatchusageplanAB250BA0"
+          }
+        ],
+        "/TestInfrastructureStack/govbizai-batch-orchestration-api/govbizai-batch-usage-plan/UsagePlanKeyResource:TestInfrastructureStackgovbizaibatchorchestrationapigovbizaibatchapikey83419E98": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "govbizaibatchorchestrationapigovbizaibatchusageplanUsagePlanKeyResourceTestInfrastructureStackgovbizaibatchorchestrationapigovbizaibatchapikey83419E98BA52F8B8"
+          }
+        ],
+        "/TestInfrastructureStack/BatchOptimizerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchOptimizerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/BatchCoordinatorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchCoordinatorFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/ProgressTrackerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ProgressTrackerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/ScheduleManagerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ScheduleManagerFunctionArn"
+          }
+        ],
+        "/TestInfrastructureStack/EnhancedProcessingStateMachineArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "EnhancedProcessingStateMachineArn"
+          }
+        ],
+        "/TestInfrastructureStack/BatchCoordinationQueueUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchCoordinationQueueUrl"
+          }
+        ],
+        "/TestInfrastructureStack/BatchOrchestrationApiEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchOrchestrationApiEndpoint"
+          }
+        ],
+        "/TestInfrastructureStack/BatchOrchestrationApiKey": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BatchOrchestrationApiKey"
+          }
+        ],
+        "/TestInfrastructureStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/TestInfrastructureStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "TestInfrastructureStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    },
+    "aws-cdk-lib/feature-flag-report": {
+      "type": "cdk:feature-flag-report",
+      "properties": {
+        "module": "aws-cdk-lib",
+        "flags": {
+          "@aws-cdk/core:enableStackNameDuplicates": {
+            "recommendedValue": true,
+            "explanation": "Allow multiple stacks with the same name",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "aws-cdk:enableDiffNoFail": {
+            "recommendedValue": true,
+            "explanation": "Make `cdk diff` not fail when there are differences",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:newStyleStackSynthesis": {
+            "recommendedValue": true,
+            "explanation": "Switch to new stack synthesis method which enables CI/CD",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:stackRelativeExports": {
+            "recommendedValue": true,
+            "explanation": "Name exports based on the construct paths relative to the stack, rather than the global construct path",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-ecr-assets:dockerIgnoreSupport": {
+            "recommendedValue": true,
+            "explanation": "DockerImageAsset properly supports `.dockerignore` files by default",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-secretsmanager:parseOwnedSecretName": {
+            "recommendedValue": true,
+            "explanation": "Fix the referencing of SecretsManager names from ARNs",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-kms:defaultKeyPolicies": {
+            "recommendedValue": true,
+            "explanation": "Tighten default KMS key policies",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-s3:grantWriteWithoutAcl": {
+            "recommendedValue": true,
+            "explanation": "Remove `PutObjectAcl` from Bucket.grantWrite",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-ecs-patterns:removeDefaultDesiredCount": {
+            "recommendedValue": true,
+            "explanation": "Do not specify a default DesiredCount for ECS services",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-rds:lowercaseDbIdentifier": {
+            "recommendedValue": true,
+            "explanation": "Force lowercasing of RDS Cluster names in CDK",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": {
+            "recommendedValue": true,
+            "explanation": "Allow adding/removing multiple UsagePlanKeys independently",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-efs:defaultEncryptionAtRest": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to have elastic file systems encrypted at rest by default.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-lambda:recognizeVersionProps": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to opt in to the updated logical id calculation for Lambda Version created using the  `fn.currentVersion`.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-lambda:recognizeLayerVersion": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to opt in to the updated logical id calculation for Lambda Version created using the `fn.currentVersion`."
+          },
+          "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to have cloudfront distributions use the security policy TLSv1.2_2021 by default.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:checkSecretUsage": {
+            "recommendedValue": true,
+            "explanation": "Enable this flag to make it impossible to accidentally use SecretValues in unsafe locations"
+          },
+          "@aws-cdk/core:target-partitions": {
+            "recommendedValue": [
+              "aws",
+              "aws-cn"
+            ],
+            "explanation": "What regions to include in lookup tables of environment agnostic stacks"
+          },
+          "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": {
+            "recommendedValue": true,
+            "explanation": "ECS extensions will automatically add an `awslogs` driver if no logging is specified"
+          },
+          "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to have Launch Templates generated by the `InstanceRequireImdsv2Aspect` use unique names."
+          },
+          "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": {
+            "recommendedValue": true,
+            "explanation": "ARN format used by ECS. In the new ARN format, the cluster name is part of the resource ID."
+          },
+          "@aws-cdk/aws-iam:minimizePolicies": {
+            "recommendedValue": true,
+            "explanation": "Minimize IAM policies by combining Statements"
+          },
+          "@aws-cdk/core:validateSnapshotRemovalPolicy": {
+            "recommendedValue": true,
+            "explanation": "Error on snapshot removal policies on resources that do not support it."
+          },
+          "@aws-cdk/aws-codepipeline:crossAccountKeyAliasStackSafeResourceName": {
+            "recommendedValue": true,
+            "explanation": "Generate key aliases that include the stack name"
+          },
+          "@aws-cdk/aws-s3:createDefaultLoggingPolicy": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature flag to create an S3 bucket policy by default in cases where an AWS service would automatically create the Policy if one does not exist."
+          },
+          "@aws-cdk/aws-sns-subscriptions:restrictSqsDescryption": {
+            "recommendedValue": true,
+            "explanation": "Restrict KMS key policy for encrypted Queues a bit more"
+          },
+          "@aws-cdk/aws-apigateway:disableCloudWatchRole": {
+            "recommendedValue": true,
+            "explanation": "Make default CloudWatch Role behavior safe for multiple API Gateways in one environment"
+          },
+          "@aws-cdk/core:enablePartitionLiterals": {
+            "recommendedValue": true,
+            "explanation": "Make ARNs concrete if AWS partition is known"
+          },
+          "@aws-cdk/aws-events:eventsTargetQueueSameAccount": {
+            "recommendedValue": true,
+            "explanation": "Event Rules may only push to encrypted SQS queues in the same account"
+          },
+          "@aws-cdk/aws-ecs:disableExplicitDeploymentControllerForCircuitBreaker": {
+            "recommendedValue": true,
+            "explanation": "Avoid setting the \"ECS\" deployment controller when adding a circuit breaker"
+          },
+          "@aws-cdk/aws-iam:importedRoleStackSafeDefaultPolicyName": {
+            "recommendedValue": true,
+            "explanation": "Enable this feature to by default create default policy names for imported roles that depend on the stack the role is in."
+          },
+          "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": {
+            "recommendedValue": true,
+            "explanation": "Use S3 Bucket Policy instead of ACLs for Server Access Logging"
+          },
+          "@aws-cdk/aws-route53-patters:useCertificate": {
+            "recommendedValue": true,
+            "explanation": "Use the official `Certificate` resource instead of `DnsValidatedCertificate`"
+          },
+          "@aws-cdk/customresources:installLatestAwsSdkDefault": {
+            "recommendedValue": false,
+            "explanation": "Whether to install the latest SDK by default in AwsCustomResource"
+          },
+          "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": {
+            "recommendedValue": true,
+            "explanation": "Use unique resource name for Database Proxy"
+          },
+          "@aws-cdk/aws-codedeploy:removeAlarmsFromDeploymentGroup": {
+            "recommendedValue": true,
+            "explanation": "Remove CloudWatch alarms from deployment group"
+          },
+          "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": {
+            "recommendedValue": true,
+            "explanation": "Include authorizer configuration in the calculation of the API deployment logical ID."
+          },
+          "@aws-cdk/aws-ec2:launchTemplateDefaultUserData": {
+            "recommendedValue": true,
+            "explanation": "Define user data for a launch template by default when a machine image is provided."
+          },
+          "@aws-cdk/aws-secretsmanager:useAttachedSecretResourcePolicyForSecretTargetAttachments": {
+            "recommendedValue": true,
+            "explanation": "SecretTargetAttachments uses the ResourcePolicy of the attached Secret."
+          },
+          "@aws-cdk/aws-redshift:columnId": {
+            "recommendedValue": true,
+            "explanation": "Whether to use an ID to track Redshift column changes"
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:enableEmrServicePolicyV2": {
+            "recommendedValue": true,
+            "explanation": "Enable AmazonEMRServicePolicy_v2 managed policies"
+          },
+          "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": {
+            "recommendedValue": true,
+            "explanation": "Restrict access to the VPC default security group"
+          },
+          "@aws-cdk/aws-apigateway:requestValidatorUniqueId": {
+            "recommendedValue": true,
+            "explanation": "Generate a unique id for each RequestValidator added to a method"
+          },
+          "@aws-cdk/aws-kms:aliasNameRef": {
+            "recommendedValue": true,
+            "explanation": "KMS Alias name and keyArn will have implicit reference to KMS Key"
+          },
+          "@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal": {
+            "recommendedValue": true,
+            "explanation": "Enable grant methods on Aliases imported by name to use kms:ResourceAliases condition"
+          },
+          "@aws-cdk/aws-autoscaling:generateLaunchTemplateInsteadOfLaunchConfig": {
+            "recommendedValue": true,
+            "explanation": "Generate a launch template when creating an AutoScalingGroup"
+          },
+          "@aws-cdk/core:includePrefixInUniqueNameGeneration": {
+            "recommendedValue": true,
+            "explanation": "Include the stack prefix in the stack name generation process"
+          },
+          "@aws-cdk/aws-efs:denyAnonymousAccess": {
+            "recommendedValue": true,
+            "explanation": "EFS denies anonymous clients accesses"
+          },
+          "@aws-cdk/aws-opensearchservice:enableOpensearchMultiAzWithStandby": {
+            "recommendedValue": true,
+            "explanation": "Enables support for Multi-AZ with Standby deployment for opensearch domains"
+          },
+          "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": {
+            "recommendedValue": true,
+            "explanation": "Enables aws-lambda-nodejs.Function to use the latest available NodeJs runtime as the default"
+          },
+          "@aws-cdk/aws-efs:mountTargetOrderInsensitiveLogicalId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, mount targets will have a stable logicalId that is linked to the associated subnet."
+          },
+          "@aws-cdk/aws-rds:auroraClusterChangeScopeOfInstanceParameterGroupWithEachParameters": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a scope of InstanceParameterGroup for AuroraClusterInstance with each parameters will change."
+          },
+          "@aws-cdk/aws-appsync:useArnForSourceApiAssociationIdentifier": {
+            "recommendedValue": true,
+            "explanation": "When enabled, will always use the arn for identifiers for CfnSourceApiAssociation in the GraphqlApi construct rather than id."
+          },
+          "@aws-cdk/aws-rds:preventRenderingDeprecatedCredentials": {
+            "recommendedValue": true,
+            "explanation": "When enabled, creating an RDS database cluster from a snapshot will only render credentials for snapshot credentials."
+          },
+          "@aws-cdk/aws-codepipeline-actions:useNewDefaultBranchForCodeCommitSource": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the CodeCommit source action is using the default branch name 'main'."
+          },
+          "@aws-cdk/aws-cloudwatch-actions:changeLambdaPermissionLogicalIdForLambdaAction": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the logical ID of a Lambda permission for a Lambda action includes an alarm ID."
+          },
+          "@aws-cdk/aws-codepipeline:crossAccountKeysDefaultValueToFalse": {
+            "recommendedValue": true,
+            "explanation": "Enables Pipeline to set the default value for crossAccountKeys to false."
+          },
+          "@aws-cdk/aws-codepipeline:defaultPipelineTypeToV2": {
+            "recommendedValue": true,
+            "explanation": "Enables Pipeline to set the default pipeline type to V2."
+          },
+          "@aws-cdk/aws-kms:reduceCrossAccountRegionPolicyScope": {
+            "recommendedValue": true,
+            "explanation": "When enabled, IAM Policy created from KMS key grant will reduce the resource scope to this key only."
+          },
+          "@aws-cdk/pipelines:reduceAssetRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "Remove the root account principal from PipelineAssetsFileRole trust policy",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-eks:nodegroupNameAttribute": {
+            "recommendedValue": true,
+            "explanation": "When enabled, nodegroupName attribute of the provisioned EKS NodeGroup will not have the cluster name prefix."
+          },
+          "@aws-cdk/aws-ec2:ebsDefaultGp3Volume": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default volume type of the EBS volume will be GP3"
+          },
+          "@aws-cdk/aws-ecs:removeDefaultDeploymentAlarm": {
+            "recommendedValue": true,
+            "explanation": "When enabled, remove default deployment alarm settings"
+          },
+          "@aws-cdk/custom-resources:logApiResponseDataPropertyTrueDefault": {
+            "recommendedValue": false,
+            "explanation": "When enabled, the custom resource used for `AwsCustomResource` will configure the `logApiResponseData` property as true by default"
+          },
+          "@aws-cdk/aws-s3:keepNotificationInImportedBucket": {
+            "recommendedValue": false,
+            "explanation": "When enabled, Adding notifications to a bucket in the current stack will not remove notification from imported stack."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:useNewS3UriParametersForBedrockInvokeModelTask": {
+            "recommendedValue": true,
+            "explanation": "When enabled, use new props for S3 URI field in task definition of state machine for bedrock invoke model.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/core:explicitStackTags": {
+            "recommendedValue": true,
+            "explanation": "When enabled, stack tags need to be assigned explicitly on a Stack."
+          },
+          "@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature": {
+            "recommendedValue": false,
+            "explanation": "When set to true along with canContainersAccessInstanceRole=false in ECS cluster, new updated commands will be added to UserData to block container accessing IMDS. **Applicable to Linux only. IMPORTANT: See [details.](#aws-cdkaws-ecsenableImdsBlockingDeprecatedFeature)**"
+          },
+          "@aws-cdk/aws-ecs:disableEcsImdsBlocking": {
+            "recommendedValue": true,
+            "explanation": "When set to true, CDK synth will throw exception if canContainersAccessInstanceRole is false. **IMPORTANT: See [details.](#aws-cdkaws-ecsdisableEcsImdsBlocking)**"
+          },
+          "@aws-cdk/aws-ecs:reduceEc2FargateCloudWatchPermissions": {
+            "recommendedValue": true,
+            "explanation": "When enabled, we will only grant the necessary permissions when users specify cloudwatch log group through logConfiguration"
+          },
+          "@aws-cdk/aws-dynamodb:resourcePolicyPerReplica": {
+            "recommendedValue": true,
+            "explanation": "When enabled will allow you to specify a resource policy per replica, and not copy the source table policy to all replicas"
+          },
+          "@aws-cdk/aws-ec2:ec2SumTImeoutEnabled": {
+            "recommendedValue": true,
+            "explanation": "When enabled, initOptions.timeout and resourceSignalTimeout values will be summed together."
+          },
+          "@aws-cdk/aws-appsync:appSyncGraphQLAPIScopeLambdaPermission": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a Lambda authorizer Permission created when using GraphqlApi will be properly scoped with a SourceArn."
+          },
+          "@aws-cdk/aws-rds:setCorrectValueForDatabaseInstanceReadReplicaInstanceResourceId": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the value of property `instanceResourceId` in construct `DatabaseInstanceReadReplica` will be set to the correct value which is `DbiResourceId` instead of currently `DbInstanceArn`"
+          },
+          "@aws-cdk/core:cfnIncludeRejectComplexResourceUpdateCreatePolicyIntrinsics": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CFN templates added with `cfn-include` will error if the template contains Resource Update or Create policies with CFN Intrinsics that include non-primitive values."
+          },
+          "@aws-cdk/aws-lambda-nodejs:sdkV3ExcludeSmithyPackages": {
+            "recommendedValue": true,
+            "explanation": "When enabled, both `@aws-sdk` and `@smithy` packages will be excluded from the Lambda Node.js 18.x runtime to prevent version mismatches in bundled applications."
+          },
+          "@aws-cdk/aws-stepfunctions-tasks:fixRunEcsTaskPolicy": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the resource of IAM Run Ecs policy generated by SFN EcsRunTask will reference the definition, instead of constructing ARN."
+          },
+          "@aws-cdk/aws-ec2:bastionHostUseAmazonLinux2023ByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the BastionHost construct will use the latest Amazon Linux 2023 AMI, instead of Amazon Linux 2."
+          },
+          "@aws-cdk/core:aspectStabilization": {
+            "recommendedValue": true,
+            "explanation": "When enabled, a stabilization loop will be run when invoking Aspects during synthesis.",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-route53-targets:userPoolDomainNameMethodWithoutCustomResource": {
+            "recommendedValue": true,
+            "explanation": "When enabled, use a new method for DNS Name of user pool domain target without creating a custom resource."
+          },
+          "@aws-cdk/aws-elasticloadbalancingV2:albDualstackWithoutPublicIpv4SecurityGroupRulesDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default security group ingress rules will allow IPv6 ingress from anywhere"
+          },
+          "@aws-cdk/aws-iam:oidcRejectUnauthorizedConnections": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the default behaviour of OIDC provider will reject unauthorized connections"
+          },
+          "@aws-cdk/core:enableAdditionalMetadataCollection": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK will expand the scope of usage data collected to better inform CDK development and improve communication for security concerns and emerging issues."
+          },
+          "@aws-cdk/aws-lambda:createNewPoliciesWithAddToRolePolicy": {
+            "recommendedValue": false,
+            "explanation": "[Deprecated] When enabled, Lambda will create new inline policies with AddToRolePolicy instead of adding to the Default Policy Statement"
+          },
+          "@aws-cdk/aws-s3:setUniqueReplicationRoleName": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK will automatically generate a unique role name that is used for s3 object replication."
+          },
+          "@aws-cdk/pipelines:reduceStageRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "Remove the root account principal from Stage addActions trust policy",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-events:requireEventBusPolicySid": {
+            "recommendedValue": true,
+            "explanation": "When enabled, grantPutEventsTo() will use resource policies with Statement IDs for service principals."
+          },
+          "@aws-cdk/core:aspectPrioritiesMutating": {
+            "recommendedValue": true,
+            "explanation": "When set to true, Aspects added by the construct library on your behalf will be given a priority of MUTATING."
+          },
+          "@aws-cdk/aws-dynamodb:retainTableReplica": {
+            "recommendedValue": true,
+            "explanation": "When enabled, table replica will be default to the removal policy of source table unless specified otherwise."
+          },
+          "@aws-cdk/cognito:logUserPoolClientSecretValue": {
+            "recommendedValue": false,
+            "explanation": "When disabled, the value of the user pool client secret will not be logged in the custom resource lambda function logs.",
+            "unconfiguredBehavesLike": {
+              "v2": false
+            }
+          },
+          "@aws-cdk/pipelines:reduceCrossAccountActionRoleTrustScope": {
+            "recommendedValue": true,
+            "explanation": "When enabled, scopes down the trust policy for the cross-account action role",
+            "unconfiguredBehavesLike": {
+              "v2": true
+            }
+          },
+          "@aws-cdk/aws-stepfunctions:useDistributedMapResultWriterV2": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the resultWriterV2 property of DistributedMap will be used insted of resultWriter"
+          },
+          "@aws-cdk/s3-notifications:addS3TrustKeyPolicyForSnsSubscriptions": {
+            "recommendedValue": true,
+            "explanation": "Add an S3 trust policy to a KMS key resource policy for SNS subscriptions."
+          },
+          "@aws-cdk/aws-ec2:requirePrivateSubnetsForEgressOnlyInternetGateway": {
+            "recommendedValue": true,
+            "explanation": "When enabled, the EgressOnlyGateway resource is only created if private subnets are defined in the dual-stack VPC."
+          },
+          "@aws-cdk/aws-ec2-alpha:useResourceIdForVpcV2Migration": {
+            "recommendedValue": false,
+            "explanation": "When enabled, use resource IDs for VPC V2 migration",
+            "unconfiguredBehavesLike": {
+              "v2": false
+            }
+          },
+          "@aws-cdk/aws-s3:publicAccessBlockedByDefault": {
+            "recommendedValue": true,
+            "explanation": "When enabled, setting any combination of options for BlockPublicAccess will automatically set true for any options not defined."
+          },
+          "@aws-cdk/aws-lambda:useCdkManagedLogGroup": {
+            "recommendedValue": true,
+            "explanation": "When enabled, CDK creates and manages loggroup for the lambda function",
+            "unconfiguredBehavesLike": {
+              "v2": false
+            }
+          }
+        }
+      }
+    }
+  },
+  "minimumCliVersion": "2.1029.1"
+}

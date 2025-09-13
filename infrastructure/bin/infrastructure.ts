@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
 import { InfrastructureStack } from '../lib/infrastructure-stack';
+import { ApiStack } from '../lib/api-stack';
 import { WebAppStack } from '../lib/web-app-stack';
 
 const app = new cdk.App();
@@ -10,17 +11,40 @@ const account = app.node.tryGetContext('account') || process.env.CDK_DEFAULT_ACC
 const region = app.node.tryGetContext('region') || process.env.CDK_DEFAULT_REGION || 'us-east-1';
 
 // Deploy core infrastructure first
-new InfrastructureStack(app, 'GovBizAIInfrastructureStack', {
+const infraStack = new InfrastructureStack(app, 'GovBizAIInfrastructureStack', {
   env: {
     account: account,
     region: region,
   },
-  description: 'GovBizAI Infrastructure - Core components including VPC, S3, DynamoDB, Lambda functions, and API Gateway',
+  description: 'GovBizAI Infrastructure - Core components including VPC, S3, DynamoDB, Lambda functions',
   tags: {
     Project: 'govbizai',
     Environment: 'dev',
     Phase: 'core-infrastructure',
   },
+});
+
+// Deploy API Gateway stack (depends on infrastructure)
+new ApiStack(app, 'GovBizAIApiStack', {
+  env: {
+    account: account,
+    region: region,
+  },
+  description: 'GovBizAI API - REST and WebSocket APIs with authentication',
+  tags: {
+    Project: 'govbizai',
+    Environment: 'dev',
+    Phase: 'api-gateway',
+  },
+  userPool: infraStack.userPool,
+  userPoolClient: infraStack.userPoolClient,
+  companiesTable: infraStack.companiesTable,
+  opportunitiesTable: infraStack.opportunitiesTable,
+  matchesTable: infraStack.matchesTable,
+  feedbackTable: infraStack.feedbackTable,
+  documentsTable: infraStack.userProfilesTable, // Using userProfiles table for document metadata
+  documentsBucket: infraStack.rawDocumentsBucket,
+  embeddingsBucket: infraStack.embeddingsBucket,
 });
 
 // Deploy web application
