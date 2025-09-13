@@ -1,0 +1,245 @@
+{
+  "overall_status": "WARN",
+  "timestamp": "2025-09-13T12:12:02.804585",
+  "validations": {
+    "performance": {
+      "status": "FAIL",
+      "targets": {
+        "nightly_processing_time_hours": 4,
+        "document_processing_seconds": 10,
+        "embedding_generation_seconds": 2,
+        "match_calculation_ms": 100,
+        "search_query_ms": 500,
+        "page_load_seconds": 2
+      },
+      "scenarios": {
+        "light_load": {
+          "total_time_hours": 0.49,
+          "meets_target": true,
+          "breakdown": {
+            "csv_processing": 61.0,
+            "api_calls": 400,
+            "downloads": 1000,
+            "embeddings": 200,
+            "storage": 100
+          }
+        },
+        "normal_load": {
+          "total_time_hours": 10.3,
+          "meets_target": false,
+          "breakdown": {
+            "csv_processing": 70.0,
+            "api_calls": 4000,
+            "downloads": 30000,
+            "embeddings": 2000,
+            "storage": 1000
+          }
+        },
+        "heavy_load": {
+          "total_time_hours": 227.82,
+          "meets_target": false,
+          "breakdown": {
+            "csv_processing": 160.0,
+            "api_calls": 40000,
+            "downloads": 750000,
+            "embeddings": 20000,
+            "storage": 10000
+          }
+        }
+      },
+      "recommendations": [
+        "Implement parallel attachment downloads",
+        "Optimize embedding generation with batch processing",
+        "Implement parallel attachment downloads",
+        "Optimize embedding generation with batch processing"
+      ]
+    },
+    "scalability": {
+      "status": "PASS",
+      "targets": {
+        "concurrent_users": 1000,
+        "daily_opportunities": 10000,
+        "company_profiles": 5000,
+        "document_pages": 500,
+        "storage_growth_gb_month": 100
+      },
+      "component_analysis": {
+        "lambda_functions": {
+          "concurrent_executions": 1000,
+          "max_duration_minutes": 15,
+          "memory_mb": 1024,
+          "can_scale": true,
+          "bottlenecks": [
+            "Memory for large CSV files",
+            "Timeout for large documents"
+          ]
+        },
+        "dynamodb": {
+          "read_capacity": "On-demand",
+          "write_capacity": "On-demand",
+          "auto_scaling": true,
+          "can_scale": true,
+          "bottlenecks": [
+            "Hot partition keys",
+            "Item size limits"
+          ]
+        },
+        "s3_storage": {
+          "throughput": "Virtually unlimited",
+          "capacity": "Virtually unlimited",
+          "can_scale": true,
+          "bottlenecks": [
+            "Request rate limits",
+            "Transfer speeds"
+          ]
+        },
+        "bedrock_embeddings": {
+          "throughput": "Rate limited",
+          "capacity": "Managed service",
+          "can_scale": true,
+          "bottlenecks": [
+            "API rate limits",
+            "Token limits"
+          ]
+        },
+        "step_functions": {
+          "concurrent_executions": "Configurable",
+          "distributed_map": true,
+          "can_scale": true,
+          "bottlenecks": [
+            "State machine complexity",
+            "Execution history"
+          ]
+        }
+      },
+      "resource_requirements": {
+        "lambda_memory_gb": 9.765625,
+        "dynamodb_items": 3650000,
+        "s3_storage_gb": 1200,
+        "api_calls_per_day": 100000
+      },
+      "recommendations": [
+        "Monitor DynamoDB for hot partitions",
+        "Implement request throttling for Bedrock API",
+        "Use S3 Transfer Acceleration for large files",
+        "Configure Lambda reserved concurrency for critical functions"
+      ]
+    },
+    "cost": {
+      "status": "WARN",
+      "total_monthly_cost": 538.16,
+      "cost_breakdown": {
+        "lambda_compute": 30.06,
+        "dynamodb": 25.11,
+        "s3": 23.24,
+        "bedrock": 6.0,
+        "textract": 450.0,
+        "step_functions": 3.75,
+        "eventbridge": 0.0
+      },
+      "targets": {
+        "total_monthly_usd": 535,
+        "minimum_monthly_usd": 435
+      },
+      "within_budget": false,
+      "cost_per_opportunity": 0.0179,
+      "optimizations": [
+        "Use S3 Intelligent Tiering for automatic cost optimization",
+        "Implement document size limits to reduce Textract costs",
+        "Use DynamoDB reserved capacity for predictable workloads",
+        "Optimize Lambda memory allocation based on actual usage",
+        "Consider Spot instances for non-critical batch processing"
+      ]
+    },
+    "operational": {
+      "status": "PASS",
+      "operational_score": 90.5,
+      "checks": {
+        "monitoring": {
+          "cloudwatch_metrics": true,
+          "custom_dashboards": true,
+          "alerting_configured": true,
+          "log_aggregation": true,
+          "status": "IMPLEMENTED"
+        },
+        "security": {
+          "encryption_at_rest": true,
+          "encryption_in_transit": true,
+          "iam_least_privilege": true,
+          "vpc_isolation": true,
+          "audit_logging": true,
+          "status": "IMPLEMENTED"
+        },
+        "backup_recovery": {
+          "dynamodb_backups": true,
+          "s3_versioning": true,
+          "point_in_time_recovery": true,
+          "cross_region_replication": false,
+          "status": "PARTIAL"
+        },
+        "deployment": {
+          "infrastructure_as_code": true,
+          "automated_testing": true,
+          "blue_green_deployment": false,
+          "rollback_capability": true,
+          "status": "PARTIAL"
+        },
+        "maintenance": {
+          "automated_cleanup": true,
+          "version_updates": true,
+          "dependency_management": true,
+          "capacity_planning": true,
+          "status": "IMPLEMENTED"
+        }
+      },
+      "recommendations": [
+        "Implement cross-region replication for disaster recovery",
+        "Set up blue-green deployment pipeline",
+        "Create runbooks for common operational scenarios",
+        "Implement automated security scanning"
+      ]
+    },
+    "compliance": {
+      "status": "PASS",
+      "overall_compliance": 78.3,
+      "frameworks": {
+        "nist_800_171": {
+          "access_control": true,
+          "audit_accountability": true,
+          "configuration_management": true,
+          "identification_authentication": true,
+          "system_communications_protection": true,
+          "system_information_integrity": true,
+          "coverage": 85
+        },
+        "fedramp_ready": {
+          "boundary_protection": true,
+          "data_encryption": true,
+          "incident_response": false,
+          "vulnerability_management": false,
+          "coverage": 60
+        },
+        "soc2_type2": {
+          "security": true,
+          "availability": true,
+          "processing_integrity": true,
+          "confidentiality": true,
+          "privacy": false,
+          "coverage": 90
+        }
+      },
+      "recommendations": [
+        "Implement formal incident response procedures",
+        "Set up vulnerability scanning and management",
+        "Create compliance documentation and audit trails",
+        "Conduct security assessment and penetration testing"
+      ]
+    }
+  },
+  "summary": {
+    "total_validations": 5,
+    "passed": 3,
+    "warnings": 1,
+    "failed": 1
+  }
+}

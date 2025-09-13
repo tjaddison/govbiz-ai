@@ -9,6 +9,11 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
+import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as path from 'path';
 
 export class InfrastructureStack extends cdk.Stack {
@@ -516,6 +521,9 @@ export class InfrastructureStack extends cdk.Stack {
 
     // 10. Create embedding generation and vector storage infrastructure
     // this.createEmbeddingInfrastructure(); // Temporarily commented out to resolve circular dependency
+
+    // 11. Create SAM.gov integration infrastructure
+    this.createSamGovInfrastructure();
 
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
@@ -1540,5 +1548,331 @@ export class InfrastructureStack extends cdk.Stack {
       description: 'ARN of the Embedding Lambda Layer',
       exportName: 'govbizai-embedding-layer-arn',
     });
+  }
+
+  private createSamGovInfrastructure(): void {
+    // Create Lambda layer for SAM.gov integration dependencies
+    const samgovLayer = new lambda.LayerVersion(this, 'govbizai-samgov-layer', {
+      layerVersionName: 'govbizai-samgov-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/samgov')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'SAM.gov integration dependencies including requests, pandas, boto3, etc.',
+    });
+
+    // Create SQS queues for processing
+    const opportunityProcessingQueue = new sqs.Queue(this, 'govbizai-opportunity-processing-queue', {
+      queueName: 'govbizai-opportunity-processing-queue',
+      visibilityTimeout: cdk.Duration.minutes(15),
+      retentionPeriod: cdk.Duration.days(14),
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'govbizai-opportunity-processing-dlq', {
+          queueName: 'govbizai-opportunity-processing-dlq',
+        }),
+        maxReceiveCount: 3,
+      },
+    });
+
+    // Common Lambda function properties for SAM.gov functions
+    const samgovFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        RAW_DOCUMENTS_BUCKET: this.rawDocumentsBucket.bucketName,
+        PROCESSED_DOCUMENTS_BUCKET: this.processedDocumentsBucket.bucketName,
+        TEMP_PROCESSING_BUCKET: this.tempProcessingBucket.bucketName,
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+        PROCESSING_QUEUE_URL: opportunityProcessingQueue.queueUrl,
+      },
+      layers: [samgovLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    };
+
+    // 1. CSV Download and Processing Function
+    const csvProcessorFunction = new lambda.Function(this, 'govbizai-csv-processor', {
+      functionName: 'govbizai-csv-processor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/csv-processor')),
+      handler: 'handler.lambda_handler',
+      description: 'Download and process SAM.gov CSV files with filtering',
+      ...samgovFunctionProps,
+    });
+
+    // 2. SAM.gov API Client Function
+    const samgovApiClientFunction = new lambda.Function(this, 'govbizai-samgov-api-client', {
+      functionName: 'govbizai-samgov-api-client',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/api-client')),
+      handler: 'handler.lambda_handler',
+      description: 'SAM.gov API client with retry logic and rate limiting',
+      ...samgovFunctionProps,
+    });
+
+    // 3. Attachment Downloader Function
+    const attachmentDownloaderFunction = new lambda.Function(this, 'govbizai-attachment-downloader', {
+      functionName: 'govbizai-attachment-downloader',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/attachment-downloader')),
+      handler: 'handler.lambda_handler',
+      description: 'Download and store opportunity attachments from SAM.gov',
+      ...samgovFunctionProps,
+    });
+
+    // 4. Opportunity Processor Function
+    const opportunityProcessorFunction = new lambda.Function(this, 'govbizai-opportunity-processor', {
+      functionName: 'govbizai-opportunity-processor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/opportunity-processor')),
+      handler: 'handler.lambda_handler',
+      description: 'Process opportunities and generate embeddings',
+      ...samgovFunctionProps,
+    });
+
+    // 5. Data Retention Function
+    const dataRetentionFunction = new lambda.Function(this, 'govbizai-data-retention', {
+      functionName: 'govbizai-data-retention',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/data-retention')),
+      handler: 'handler.lambda_handler',
+      description: 'Clean up expired opportunities and attachments',
+      ...samgovFunctionProps,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+
+    // 6. SAM.gov Orchestrator Function (Main Entry Point)
+    const samgovOrchestratorFunction = new lambda.Function(this, 'govbizai-samgov-orchestrator', {
+      functionName: 'govbizai-samgov-orchestrator',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/orchestrator')),
+      handler: 'handler.lambda_handler',
+      description: 'Main orchestrator for SAM.gov nightly processing',
+      ...samgovFunctionProps,
+      timeout: cdk.Duration.minutes(5),
+      environment: {
+        ...samgovFunctionProps.environment,
+        CSV_PROCESSOR_FUNCTION: csvProcessorFunction.functionName,
+        API_CLIENT_FUNCTION: samgovApiClientFunction.functionName,
+        ATTACHMENT_DOWNLOADER_FUNCTION: attachmentDownloaderFunction.functionName,
+        OPPORTUNITY_PROCESSOR_FUNCTION: opportunityProcessorFunction.functionName,
+      },
+    });
+
+    // Grant permissions to all SAM.gov functions
+    const samgovFunctions = [
+      csvProcessorFunction,
+      samgovApiClientFunction,
+      attachmentDownloaderFunction,
+      opportunityProcessorFunction,
+      dataRetentionFunction,
+      samgovOrchestratorFunction,
+    ];
+
+    samgovFunctions.forEach(func => {
+      // S3 permissions
+      this.rawDocumentsBucket.grantReadWrite(func);
+      this.processedDocumentsBucket.grantReadWrite(func);
+      this.tempProcessingBucket.grantReadWrite(func);
+      this.embeddingsBucket.grantReadWrite(func);
+
+      // DynamoDB permissions
+      this.opportunitiesTable.grantReadWriteData(func);
+
+      // SQS permissions
+      opportunityProcessingQueue.grantSendMessages(func);
+      opportunityProcessingQueue.grantConsumeMessages(func);
+
+      // Bedrock permissions for embedding generation
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        ],
+      }));
+    });
+
+    // Grant cross-function invoke permissions to orchestrator
+    csvProcessorFunction.grantInvoke(samgovOrchestratorFunction);
+    samgovApiClientFunction.grantInvoke(samgovOrchestratorFunction);
+    attachmentDownloaderFunction.grantInvoke(samgovOrchestratorFunction);
+    opportunityProcessorFunction.grantInvoke(samgovOrchestratorFunction);
+
+    // Create Step Functions State Machine for distributed processing
+    const processingStateMachine = this.createProcessingStateMachine(
+      csvProcessorFunction,
+      samgovApiClientFunction,
+      attachmentDownloaderFunction,
+      opportunityProcessorFunction,
+      opportunityProcessingQueue
+    );
+
+    // Create EventBridge rule for nightly processing (2:00 AM EST)
+    const nightlyProcessingRule = new events.Rule(this, 'govbizai-nightly-processing-rule', {
+      ruleName: 'govbizai-nightly-processing-rule',
+      description: 'Trigger SAM.gov processing at 2:00 AM EST daily',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7', // 2:00 AM EST = 7:00 AM UTC
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+      enabled: true,
+    });
+
+    // Add Step Functions as target
+    nightlyProcessingRule.addTarget(new targets.SfnStateMachine(processingStateMachine));
+
+    // Create EventBridge rule for daily data retention (3:00 AM EST)
+    const dataRetentionRule = new events.Rule(this, 'govbizai-data-retention-rule', {
+      ruleName: 'govbizai-data-retention-rule',
+      description: 'Trigger data retention cleanup at 3:00 AM EST daily',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '8', // 3:00 AM EST = 8:00 AM UTC
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+      enabled: true,
+    });
+
+    // Add Lambda as target for data retention
+    dataRetentionRule.addTarget(new targets.LambdaFunction(dataRetentionFunction));
+
+    // Output important ARNs and names
+    new cdk.CfnOutput(this, 'CsvProcessorFunctionArn', {
+      value: csvProcessorFunction.functionArn,
+      description: 'ARN of the CSV Processor Lambda function',
+      exportName: 'govbizai-csv-processor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'SamgovApiClientFunctionArn', {
+      value: samgovApiClientFunction.functionArn,
+      description: 'ARN of the SAM.gov API Client Lambda function',
+      exportName: 'govbizai-samgov-api-client-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'AttachmentDownloaderFunctionArn', {
+      value: attachmentDownloaderFunction.functionArn,
+      description: 'ARN of the Attachment Downloader Lambda function',
+      exportName: 'govbizai-attachment-downloader-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'OpportunityProcessorFunctionArn', {
+      value: opportunityProcessorFunction.functionArn,
+      description: 'ARN of the Opportunity Processor Lambda function',
+      exportName: 'govbizai-opportunity-processor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'DataRetentionFunctionArn', {
+      value: dataRetentionFunction.functionArn,
+      description: 'ARN of the Data Retention Lambda function',
+      exportName: 'govbizai-data-retention-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'SamgovOrchestratorFunctionArn', {
+      value: samgovOrchestratorFunction.functionArn,
+      description: 'ARN of the SAM.gov Orchestrator Lambda function',
+      exportName: 'govbizai-samgov-orchestrator-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'ProcessingStateMachineArn', {
+      value: processingStateMachine.stateMachineArn,
+      description: 'ARN of the Processing Step Functions State Machine',
+      exportName: 'govbizai-processing-state-machine-arn',
+    });
+
+    new cdk.CfnOutput(this, 'OpportunityProcessingQueueUrl', {
+      value: opportunityProcessingQueue.queueUrl,
+      description: 'URL of the Opportunity Processing SQS Queue',
+      exportName: 'govbizai-opportunity-processing-queue-url',
+    });
+
+    new cdk.CfnOutput(this, 'SamgovLayerArn', {
+      value: samgovLayer.layerVersionArn,
+      description: 'ARN of the SAM.gov Lambda Layer',
+      exportName: 'govbizai-samgov-layer-arn',
+    });
+  }
+
+  private createProcessingStateMachine(
+    csvProcessor: lambda.Function,
+    apiClient: lambda.Function,
+    attachmentDownloader: lambda.Function,
+    opportunityProcessor: lambda.Function,
+    processingQueue: sqs.Queue
+  ): stepfunctions.StateMachine {
+    // Define the Step Functions workflow
+    const initializeTask = new stepfunctionsTasks.LambdaInvoke(this, 'Initialize Processing', {
+      lambdaFunction: csvProcessor,
+      outputPath: '$.Payload',
+    });
+
+    const processOpportunityTask = new stepfunctionsTasks.LambdaInvoke(this, 'Process Opportunity', {
+      lambdaFunction: opportunityProcessor,
+      outputPath: '$.Payload',
+    });
+
+    const downloadAttachmentsTask = new stepfunctionsTasks.LambdaInvoke(this, 'Download Attachments', {
+      lambdaFunction: attachmentDownloader,
+      outputPath: '$.Payload',
+    });
+
+    // Create a distributed map for parallel processing
+    const distributedMap = new stepfunctions.DistributedMap(this, 'Process Opportunities in Parallel', {
+      maxConcurrency: 50,
+      itemsPath: '$.opportunities',
+    });
+
+    // Define the map iteration
+    const processAndDownload = stepfunctions.Chain.start(processOpportunityTask)
+      .next(downloadAttachmentsTask);
+
+    distributedMap.itemProcessor(processAndDownload);
+
+    // Define success state
+    const successState = new stepfunctions.Succeed(this, 'Processing Complete', {
+      comment: 'All opportunities processed successfully',
+    });
+
+    // Define failure state
+    const failureState = new stepfunctions.Fail(this, 'Processing Failed', {
+      comment: 'Processing failed with errors',
+    });
+
+    // Create the main workflow
+    const definition = stepfunctions.Chain.start(initializeTask)
+      .next(distributedMap)
+      .next(successState);
+
+    // Add error handling
+    initializeTask.addCatch(failureState, {
+      errors: ['States.ALL'],
+      resultPath: '$.error',
+    });
+
+    distributedMap.addCatch(failureState, {
+      errors: ['States.ALL'],
+      resultPath: '$.error',
+    });
+
+    // Create the state machine
+    const stateMachine = new stepfunctions.StateMachine(this, 'govbizai-processing-state-machine', {
+      stateMachineName: 'govbizai-processing-state-machine',
+      definition: definition,
+      timeout: cdk.Duration.hours(4),
+      logs: {
+        destination: new logs.LogGroup(this, 'govbizai-processing-state-machine-logs', {
+          logGroupName: '/aws/stepfunctions/govbizai-processing-state-machine',
+          retention: logs.RetentionDays.ONE_MONTH,
+        }),
+        level: stepfunctions.LogLevel.ALL,
+      },
+    });
+
+    return stateMachine;
   }
 }

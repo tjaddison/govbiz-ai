@@ -1,0 +1,16 @@
+{
+  "notice_id": "TEST001",
+  "opportunity_data": {
+    "NoticeId": "TEST001",
+    "Title": "Test Opportunity for Phase 5 Validation",
+    "PostedDate": "2024-01-15",
+    "Department/Ind.Agency": "TEST AGENCY",
+    "Office": "Test Office",
+    "Description": "This is a test opportunity for validation purposes.",
+    "NaicsCode": "541330",
+    "SetAsideCode": "SBA",
+    "SetASide": "Small Business Set-Aside",
+    "ResponseDeadLine": "2024-02-15",
+    "ArchiveDate": "2025-03-15"
+  }
+}
