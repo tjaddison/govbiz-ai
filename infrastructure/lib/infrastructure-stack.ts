@@ -525,6 +525,9 @@ export class InfrastructureStack extends cdk.Stack {
     // 11. Create SAM.gov integration infrastructure
     this.createSamGovInfrastructure();
 
+    // 12. Create Phase 6: Company Profile Management Functions
+    this.createCompanyProfileManagementFunctions();
+
     // Tag all resources with govbizai prefix
     cdk.Tags.of(this).add('Project', 'govbizai');
     cdk.Tags.of(this).add('Environment', 'dev');
@@ -1874,5 +1877,263 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     return stateMachine;
+  }
+
+  private createCompanyProfileManagementFunctions(): void {
+    // Create Lambda layer for company profile management dependencies
+    const companyProfileLayer = new lambda.LayerVersion(this, 'govbizai-company-profile-layer', {
+      layerVersionName: 'govbizai-company-profile-layer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/company-profile')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Company profile management dependencies including requests, BeautifulSoup4, etc.',
+    });
+
+    // Common Lambda function properties for company profile functions
+    const companyProfileFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024,
+      environment: {
+        RAW_DOCUMENTS_BUCKET: this.rawDocumentsBucket.bucketName,
+        PROCESSED_DOCUMENTS_BUCKET: this.processedDocumentsBucket.bucketName,
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+        COMPANIES_TABLE_NAME: this.companiesTable.tableName,
+        AUDIT_LOG_TABLE_NAME: this.auditLogTable.tableName,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
+      },
+      layers: [companyProfileLayer],
+      vpc: this.vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    };
+
+    // 1. S3 Presigned URL Generator
+    const uploadPresignedUrlFunction = new lambda.Function(this, 'govbizai-upload-presigned-url', {
+      functionName: 'govbizai-upload-presigned-url',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/upload-presigned-url')),
+      handler: 'handler.lambda_handler',
+      description: 'Generate presigned URLs for secure document uploads',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+
+    // 2. Multipart Upload Handler
+    const multipartUploadFunction = new lambda.Function(this, 'govbizai-multipart-upload', {
+      functionName: 'govbizai-multipart-upload',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/multipart-upload')),
+      handler: 'handler.lambda_handler',
+      description: 'Handle multipart uploads for large documents',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(10),
+    });
+
+    // 3. Upload Progress Tracker
+    const uploadProgressFunction = new lambda.Function(this, 'govbizai-upload-progress', {
+      functionName: 'govbizai-upload-progress',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/upload-progress')),
+      handler: 'handler.lambda_handler',
+      description: 'Track and manage document upload progress',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+
+    // 4. Company Profile Schema Validator
+    const schemaValidatorFunction = new lambda.Function(this, 'govbizai-schema-validator', {
+      functionName: 'govbizai-schema-validator',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/schema-validator')),
+      handler: 'handler.lambda_handler',
+      description: 'Validate and sanitize company profile data',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+
+    // 5. Document Categorizer
+    const documentCategorizerFunction = new lambda.Function(this, 'govbizai-document-categorizer', {
+      functionName: 'govbizai-document-categorizer',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/document-categorizer')),
+      handler: 'handler.lambda_handler',
+      description: 'Automatically categorize uploaded documents',
+      ...companyProfileFunctionProps,
+      environment: {
+        ...companyProfileFunctionProps.environment,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
+      },
+    });
+
+    // 6. Resume Parser
+    const resumeParserFunction = new lambda.Function(this, 'govbizai-resume-parser', {
+      functionName: 'govbizai-resume-parser',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/resume-parser')),
+      handler: 'handler.lambda_handler',
+      description: 'Extract structured information from resume documents',
+      ...companyProfileFunctionProps,
+      environment: {
+        ...companyProfileFunctionProps.environment,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
+      },
+    });
+
+    // 7. Capability Statement Processor
+    const capabilityProcessorFunction = new lambda.Function(this, 'govbizai-capability-processor', {
+      functionName: 'govbizai-capability-processor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/capability-processor')),
+      handler: 'handler.lambda_handler',
+      description: 'Process and extract information from capability statements',
+      ...companyProfileFunctionProps,
+      environment: {
+        ...companyProfileFunctionProps.environment,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
+      },
+    });
+
+    // 8. Website Scraper
+    const websiteScraperFunction = new lambda.Function(this, 'govbizai-website-scraper', {
+      functionName: 'govbizai-website-scraper',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/website-scraper')),
+      handler: 'handler.lambda_handler',
+      description: 'Scrape company websites with robots.txt compliance',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 2048,
+    });
+
+    // 9. Multi-Level Embedding Strategy
+    const embeddingStrategyFunction = new lambda.Function(this, 'govbizai-embedding-strategy', {
+      functionName: 'govbizai-embedding-strategy',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/company-profile/embedding-strategy')),
+      handler: 'handler.lambda_handler',
+      description: 'Create multi-level embeddings for company documents',
+      ...companyProfileFunctionProps,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 2048,
+    });
+
+    // Grant permissions to all company profile functions
+    const companyProfileFunctions = [
+      uploadPresignedUrlFunction,
+      multipartUploadFunction,
+      uploadProgressFunction,
+      schemaValidatorFunction,
+      documentCategorizerFunction,
+      resumeParserFunction,
+      capabilityProcessorFunction,
+      websiteScraperFunction,
+      embeddingStrategyFunction,
+    ];
+
+    companyProfileFunctions.forEach(func => {
+      // S3 permissions
+      this.rawDocumentsBucket.grantReadWrite(func);
+      this.processedDocumentsBucket.grantReadWrite(func);
+      this.embeddingsBucket.grantReadWrite(func);
+
+      // DynamoDB permissions
+      this.companiesTable.grantReadWriteData(func);
+      this.auditLogTable.grantWriteData(func);
+
+      // Bedrock permissions for AI functionality
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+        ],
+      }));
+
+      // Lambda invoke permissions for function chaining
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'lambda:InvokeFunction',
+        ],
+        resources: [
+          `arn:aws:lambda:${this.region}:${this.account}:function:govbizai-text-extraction`,
+          `arn:aws:lambda:${this.region}:${this.account}:function:govbizai-*`,
+        ],
+      }));
+
+      // EventBridge permissions for website scraper scheduling
+      if (func === websiteScraperFunction) {
+        func.addToRolePolicy(new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'events:PutRule',
+            'events:PutTargets',
+            'events:DeleteRule',
+            'events:RemoveTargets',
+          ],
+          resources: [`arn:aws:events:${this.region}:${this.account}:rule/govbizai-website-scraping-*`],
+        }));
+      }
+    });
+
+    // Output Lambda function ARNs
+    new cdk.CfnOutput(this, 'UploadPresignedUrlFunctionArn', {
+      value: uploadPresignedUrlFunction.functionArn,
+      description: 'ARN of the Upload Presigned URL Lambda function',
+      exportName: 'govbizai-upload-presigned-url-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'MultipartUploadFunctionArn', {
+      value: multipartUploadFunction.functionArn,
+      description: 'ARN of the Multipart Upload Lambda function',
+      exportName: 'govbizai-multipart-upload-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'UploadProgressFunctionArn', {
+      value: uploadProgressFunction.functionArn,
+      description: 'ARN of the Upload Progress Lambda function',
+      exportName: 'govbizai-upload-progress-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'SchemaValidatorFunctionArn', {
+      value: schemaValidatorFunction.functionArn,
+      description: 'ARN of the Schema Validator Lambda function',
+      exportName: 'govbizai-schema-validator-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'DocumentCategorizerFunctionArn', {
+      value: documentCategorizerFunction.functionArn,
+      description: 'ARN of the Document Categorizer Lambda function',
+      exportName: 'govbizai-document-categorizer-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'ResumeParserFunctionArn', {
+      value: resumeParserFunction.functionArn,
+      description: 'ARN of the Resume Parser Lambda function',
+      exportName: 'govbizai-resume-parser-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'CapabilityProcessorFunctionArn', {
+      value: capabilityProcessorFunction.functionArn,
+      description: 'ARN of the Capability Processor Lambda function',
+      exportName: 'govbizai-capability-processor-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'WebsiteScraperFunctionArn', {
+      value: websiteScraperFunction.functionArn,
+      description: 'ARN of the Website Scraper Lambda function',
+      exportName: 'govbizai-website-scraper-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'EmbeddingStrategyFunctionArn', {
+      value: embeddingStrategyFunction.functionArn,
+      description: 'ARN of the Embedding Strategy Lambda function',
+      exportName: 'govbizai-embedding-strategy-function-arn',
+    });
+
+    new cdk.CfnOutput(this, 'CompanyProfileLayerArn', {
+      value: companyProfileLayer.layerVersionArn,
+      description: 'ARN of the Company Profile Lambda Layer',
+      exportName: 'govbizai-company-profile-layer-arn',
+    });
   }
 }
