@@ -662,15 +662,18 @@ export class InfrastructureStack extends cdk.Stack {
         ],
         callbackUrls: [
           'http://localhost:3000/auth/callback', // For local development
+          'http://localhost:3001/auth/callback', // For local development - alternate port
           'https://app.govbizai.com/auth/callback', // Production URL placeholder
         ],
         logoutUrls: [
-          'http://localhost:3000/auth/logout', // For local development
-          'https://app.govbizai.com/auth/logout', // Production URL placeholder
+          'http://localhost:3000/', // For local development - redirect to home after logout
+          'http://localhost:3001/', // For local development - alternate port
+          'https://app.govbizai.com/', // Production URL placeholder - redirect to home after logout
         ],
       },
       supportedIdentityProviders: [
         cognito.UserPoolClientIdentityProvider.COGNITO,
+        cognito.UserPoolClientIdentityProvider.GOOGLE,
       ],
       readAttributes: new cognito.ClientAttributes()
         .withStandardAttributes({

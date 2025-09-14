@@ -6,6 +6,9 @@ import logging
 from datetime import datetime
 import uuid
 from decimal import Decimal
+import base64
+import jwt
+from jwt import PyJWKClient
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -13,9 +16,11 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource('dynamodb')
 s3_client = boto3.client('s3')
 
-COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE_NAME']
-PROCESSED_DOCUMENTS_BUCKET = os.environ['PROCESSED_DOCUMENTS_BUCKET']
+COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE']
+PROCESSED_DOCUMENTS_BUCKET = os.environ['DOCUMENTS_BUCKET']
 EMBEDDINGS_BUCKET = os.environ['EMBEDDINGS_BUCKET']
+COGNITO_USER_POOL_ID = os.environ['USER_POOL_ID']  # CDK sets this as USER_POOL_ID
+AWS_REGION = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')  # Use AWS default or fallback
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
@@ -56,7 +61,31 @@ def handle_get_company_profile(company_id: str) -> Dict[str, Any]:
         response = companies_table.get_item(Key={'company_id': company_id})
 
         if 'Item' not in response:
-            return create_error_response(404, 'COMPANY_NOT_FOUND', 'Company profile not found')
+            # Return empty profile structure for new companies
+            empty_profile = {
+                'company_id': company_id,
+                'company_name': '',
+                'website_url': '',
+                'duns_number': '',
+                'cage_code': '',
+                'uei': '',
+                'naics_codes': [],
+                'certifications': [],
+                'revenue_range': '',
+                'employee_count': '',
+                'locations': [],
+                'capability_statement': '',
+                'created_at': datetime.utcnow().isoformat() + 'Z',
+                'updated_at': datetime.utcnow().isoformat() + 'Z'
+            }
+            return {
+                'statusCode': 200,
+                'headers': get_cors_headers(),
+                'body': json.dumps({
+                    'success': True,
+                    'data': empty_profile
+                })
+            }
 
         # Convert Decimal to float for JSON serialization
         item = json.loads(json.dumps(response['Item'], default=decimal_default))
@@ -64,7 +93,10 @@ def handle_get_company_profile(company_id: str) -> Dict[str, Any]:
         return {
             'statusCode': 200,
             'headers': get_cors_headers(),
-            'body': json.dumps(item)
+            'body': json.dumps({
+                'success': True,
+                'data': item
+            })
         }
 
     except Exception as e:
@@ -113,8 +145,9 @@ def handle_update_company_profile(company_id: str, profile_data: Dict[str, Any])
                 'statusCode': 201,
                 'headers': get_cors_headers(),
                 'body': json.dumps({
-                    'message': 'Company profile created successfully',
-                    'company_id': company_id
+                    'success': True,
+                    'data': profile_data,
+                    'message': 'Company profile created successfully'
                 })
             }
 
@@ -137,8 +170,9 @@ def handle_update_company_profile(company_id: str, profile_data: Dict[str, Any])
             'statusCode': 200,
             'headers': get_cors_headers(),
             'body': json.dumps({
-                'message': 'Company profile updated successfully',
-                'profile': updated_item
+                'success': True,
+                'data': updated_item,
+                'message': 'Company profile updated successfully'
             })
         }
 
@@ -161,10 +195,13 @@ def handle_scrape_website(company_id: str, body: Dict[str, Any]) -> Dict[str, An
             'statusCode': 202,
             'headers': get_cors_headers(),
             'body': json.dumps({
-                'message': 'Website scraping initiated',
-                'company_id': company_id,
-                'website_url': website_url,
-                'status': 'processing'
+                'success': True,
+                'data': {
+                    'company_id': company_id,
+                    'website_url': website_url,
+                    'status': 'processing'
+                },
+                'message': 'Website scraping initiated'
             })
         }
 
@@ -185,16 +222,56 @@ def get_company_id_from_token(event: Dict[str, Any]) -> str:
     try:
         auth_header = event.get('headers', {}).get('Authorization', '')
         if not auth_header.startswith('Bearer '):
+            logger.error("Missing or invalid Authorization header")
             return None
 
-        # For now, extract from Cognito user pool token
-        # In production, decode JWT and extract custom:company_id
-        # This is a simplified version - in production you'd decode the JWT
+        token = auth_header[7:]  # Remove 'Bearer ' prefix
 
-        # TODO: Implement proper JWT decoding
-        # For now, return a placeholder
-        return event.get('requestContext', {}).get('authorizer', {}).get('company_id')
+        # Decode JWT token without verification first to get the header
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get('kid')
 
+        if not kid:
+            logger.error("Missing 'kid' in JWT header")
+            return None
+
+        # Get JWKS URL for Cognito User Pool
+        jwks_url = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+
+        # Get signing key
+        jwks_client = PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+
+        # Decode and verify JWT
+        payload = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=None,  # We'll verify token_use instead
+            options={"verify_aud": False}
+        )
+
+        # Verify this is an access token
+        if payload.get('token_use') != 'access':
+            logger.error(f"Invalid token_use: {payload.get('token_use')}")
+            return None
+
+        # Extract company_id from custom claims
+        company_id = payload.get('custom:company_id')
+
+        if not company_id:
+            logger.error("Missing custom:company_id in token")
+            return None
+
+        logger.info(f"Successfully extracted company_id: {company_id}")
+        return company_id
+
+    except jwt.ExpiredSignatureError:
+        logger.error("JWT token has expired")
+        return None
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid JWT token: {str(e)}")
+        return None
     except Exception as e:
         logger.error(f"Error extracting company_id from token: {str(e)}")
         return None
@@ -211,11 +288,9 @@ def create_error_response(status_code: int, error_code: str, message: str) -> Di
         'statusCode': status_code,
         'headers': get_cors_headers(),
         'body': json.dumps({
-            'error': {
-                'code': error_code,
-                'message': message,
-                'timestamp': datetime.utcnow().isoformat() + 'Z'
-            }
+            'success': False,
+            'error': f"{error_code}: {message}",
+            'timestamp': datetime.utcnow().isoformat() + 'Z'
         })
     }
 

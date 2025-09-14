@@ -12,9 +12,9 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
 
-MATCHES_TABLE_NAME = os.environ['MATCHES_TABLE_NAME']
-COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE_NAME']
-OPPORTUNITIES_TABLE_NAME = os.environ['OPPORTUNITIES_TABLE_NAME']
+MATCHES_TABLE_NAME = os.environ['MATCHES_TABLE']
+COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE']
+OPPORTUNITIES_TABLE_NAME = os.environ['OPPORTUNITIES_TABLE']
 MATCHING_ENGINE_FUNCTION_ARN = os.environ.get('MATCHING_ENGINE_FUNCTION_ARN')
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -12,9 +12,9 @@ logger.setLevel(logging.INFO)
 
 dynamodb = boto3.resource('dynamodb')
 
-MATCHES_TABLE_NAME = os.environ['MATCHES_TABLE_NAME']
-FEEDBACK_TABLE_NAME = os.environ['FEEDBACK_TABLE_NAME']
-OPPORTUNITIES_TABLE_NAME = os.environ['OPPORTUNITIES_TABLE_NAME']
+MATCHES_TABLE_NAME = os.environ['MATCHES_TABLE']
+FEEDBACK_TABLE_NAME = os.environ['FEEDBACK_TABLE']
+OPPORTUNITIES_TABLE_NAME = os.environ['OPPORTUNITIES_TABLE']
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """

@@ -12,9 +12,9 @@ logger.setLevel(logging.INFO)
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
 
-RAW_DOCUMENTS_BUCKET = os.environ['RAW_DOCUMENTS_BUCKET']
-PROCESSED_DOCUMENTS_BUCKET = os.environ['PROCESSED_DOCUMENTS_BUCKET']
-COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE_NAME']
+RAW_DOCUMENTS_BUCKET = os.environ['DOCUMENTS_BUCKET']
+PROCESSED_DOCUMENTS_BUCKET = os.environ['DOCUMENTS_BUCKET']
+COMPANIES_TABLE_NAME = os.environ['COMPANIES_TABLE']
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
