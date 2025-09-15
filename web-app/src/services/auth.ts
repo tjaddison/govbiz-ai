@@ -1,90 +1,37 @@
-import {
-  CognitoUserPool,
-  CognitoUser,
-  AuthenticationDetails,
-  CognitoUserAttribute,
-  CognitoUserSession
-} from 'amazon-cognito-identity-js';
 import { User } from '../types';
 
-const userPool = new CognitoUserPool({
-  UserPoolId: process.env.REACT_APP_COGNITO_USER_POOL_ID || '',
-  ClientId: process.env.REACT_APP_COGNITO_APP_CLIENT_ID || '',
-});
+// Configuration for Cognito Hosted UI
+const COGNITO_DOMAIN = process.env.REACT_APP_COGNITO_USER_POOL_DOMAIN;
+const CLIENT_ID = process.env.REACT_APP_COGNITO_APP_CLIENT_ID;
+const REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
 export class AuthService {
-  static async signIn(email: string, password: string): Promise<CognitoUserSession> {
-    return new Promise((resolve, reject) => {
-      const authenticationDetails = new AuthenticationDetails({
-        Username: email,
-        Password: password,
-      });
+  // Redirect to Cognito Hosted UI for sign in
+  static signIn(): void {
 
-      const cognitoUser = new CognitoUser({
-        Username: email,
-        Pool: userPool,
-      });
+    const loginUrl = `https://${COGNITO_DOMAIN}/login?` +
+      `client_id=${CLIENT_ID}&` +
+      `response_type=code&` +
+      `scope=email+openid+profile&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-      cognitoUser.authenticateUser(authenticationDetails, {
-        onSuccess: (session) => {
-          resolve(session);
-        },
-        onFailure: (error) => {
-          reject(error);
-        },
-        newPasswordRequired: (userAttributes, requiredAttributes) => {
-          reject(new Error('New password required'));
-        },
-      });
-    });
+    window.location.href = loginUrl;
   }
 
-  static async signUp(
-    email: string,
-    password: string,
-    attributes: { [key: string]: string }
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const cognitoUserAttributes = Object.keys(attributes).map(key =>
-        new CognitoUserAttribute({
-          Name: key,
-          Value: attributes[key],
-        })
-      );
+  // Redirect to Cognito Hosted UI for sign up
+  static signUp(): void {
+    const signUpUrl = `https://${COGNITO_DOMAIN}/signup?` +
+      `client_id=${CLIENT_ID}&` +
+      `response_type=code&` +
+      `scope=email+openid+profile&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-      userPool.signUp(email, password, cognitoUserAttributes, [], (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(result);
-      });
-    });
+    window.location.href = signUpUrl;
   }
 
-  static async confirmSignUp(email: string, confirmationCode: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const cognitoUser = new CognitoUser({
-        Username: email,
-        Pool: userPool,
-      });
-
-      cognitoUser.confirmRegistration(confirmationCode, true, (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve(result);
-      });
-    });
-  }
-
+  // Sign out and redirect to home page
   static async signOut(): Promise<void> {
-    const currentUser = userPool.getCurrentUser();
-    if (currentUser) {
-      currentUser.signOut();
-    }
-    // Clear all stored tokens and user data
+    // Clear local storage
     localStorage.removeItem('user');
     localStorage.removeItem('access_token');
     localStorage.removeItem('id_token');
@@ -92,177 +39,143 @@ export class AuthService {
     localStorage.removeItem('oauth_code');
     localStorage.removeItem('oauth_provider');
     localStorage.removeItem('oauth_timestamp');
+    localStorage.removeItem('processed_oauth_code');
+    localStorage.removeItem('oauth_processing_timestamp');
+    localStorage.removeItem('oauth_context_processing');
+
+    // Redirect directly to home page instead of Cognito logout
+    // This avoids the Cognito logout redirect issues
+    window.location.href = window.location.origin;
   }
 
-  static async getCurrentSession(): Promise<CognitoUserSession | null> {
-    return new Promise((resolve) => {
-      const currentUser = userPool.getCurrentUser();
-      if (!currentUser) {
-        resolve(null);
-        return;
+  // Check if user has valid tokens
+  static hasValidSession(): boolean {
+    const idToken = localStorage.getItem('id_token');
+    if (!idToken) return false;
+
+    try {
+      const parts = idToken.split('.');
+      if (parts.length !== 3) {
+        console.error('hasValidSession - invalid JWT format');
+        return false;
       }
 
-      currentUser.getSession((error: any, session: CognitoUserSession | null) => {
-        if (error || !session) {
-          resolve(null);
-          return;
-        }
-        resolve(session);
-      });
-    });
+      const tokenPayload = JSON.parse(atob(parts[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+
+      if (!tokenPayload.exp) {
+        console.error('hasValidSession - no expiration in token');
+        return false;
+      }
+
+      const isValid = tokenPayload.exp > currentTime;
+      return isValid;
+    } catch (error) {
+      console.error('hasValidSession - error parsing token:', error);
+      return false;
+    }
   }
 
+  // Get current authenticated user
   static async getCurrentUser(): Promise<User | null> {
     try {
-      // First check if we have OAuth tokens stored
-      const oauthIdToken = localStorage.getItem('id_token');
-      if (oauthIdToken) {
-        try {
-          const tokenPayload = JSON.parse(atob(oauthIdToken.split('.')[1]));
+      const idToken = localStorage.getItem('id_token');
 
-          // Check if token is still valid
-          const currentTime = Math.floor(Date.now() / 1000);
-          if (tokenPayload.exp && tokenPayload.exp > currentTime) {
-            const user: User = {
-              id: tokenPayload.sub,
-              email: tokenPayload.email || 'user@google-oauth.com',
-              name: tokenPayload.name || `${tokenPayload.given_name} ${tokenPayload.family_name}` || 'OAuth User',
-              companyId: tokenPayload['custom:company_id'] || 'oauth-company',
-              role: tokenPayload['custom:role'] || 'user',
-              subscriptionTier: tokenPayload['custom:subscription_tier'] || 'basic',
-              tenantId: tokenPayload['custom:tenant_id'] || 'oauth-tenant',
-            };
-
-            localStorage.setItem('user', JSON.stringify(user));
-            return user;
-          }
-        } catch (error) {
-          console.error('Error parsing OAuth token:', error);
-          // Clear invalid tokens
-          localStorage.removeItem('id_token');
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-        }
+      if (!idToken) {
+        return null;
       }
 
-      // Fall back to regular Cognito session
-      const session = await this.getCurrentSession();
-      if (!session) {
-        // Check if we have a stored user (fallback)
-        return this.getStoredUser();
+      if (!this.hasValidSession()) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('id_token');
+        localStorage.removeItem('refresh_token');
+        return null;
       }
 
-      const token = session.getIdToken().payload;
+      const tokenPayload = JSON.parse(atob(idToken.split('.')[1]));
+
       const user: User = {
-        id: token.sub,
-        email: token.email,
-        name: token.name || token.given_name + ' ' + token.family_name,
-        companyId: token['custom:company_id'] || '',
-        tenantId: token['custom:tenant_id'] || '',
-        role: token['custom:role'] || 'user',
-        subscriptionTier: token['custom:subscription_tier'] || 'basic',
+        id: tokenPayload.sub,
+        email: tokenPayload.email || 'user@cognito.com',
+        name: tokenPayload.name || `${tokenPayload.given_name || ''} ${tokenPayload.family_name || ''}`.trim() || 'User',
+        companyId: tokenPayload['custom:company_id'] || 'default-company',
+        role: tokenPayload['custom:role'] || 'user',
+        subscriptionTier: tokenPayload['custom:subscription_tier'] || 'basic',
+        tenantId: tokenPayload['custom:tenant_id'] || 'default-tenant',
       };
 
       localStorage.setItem('user', JSON.stringify(user));
       return user;
     } catch (error) {
-      console.error('Error getting current user:', error);
-      // Return stored user as final fallback
-      return this.getStoredUser();
+      localStorage.removeItem('user');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('id_token');
+      localStorage.removeItem('refresh_token');
+      return null;
     }
   }
 
+  // Get stored access token
   static async getAccessToken(): Promise<string | null> {
     try {
-      const session = await this.getCurrentSession();
-      if (!session) {
+      if (!this.hasValidSession()) {
         return null;
       }
-      return session.getAccessToken().getJwtToken();
+
+      const token = localStorage.getItem('access_token');
+      return token;
     } catch (error) {
-      console.error('Error getting access token:', error);
       return null;
     }
   }
 
-  static async forgotPassword(email: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const cognitoUser = new CognitoUser({
-        Username: email,
-        Pool: userPool,
-      });
+  // Redirect to forgot password page
+  static forgotPassword(): void {
+    const forgotPasswordUrl = `https://${COGNITO_DOMAIN}/forgotPassword?` +
+      `client_id=${CLIENT_ID}&` +
+      `response_type=code&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-      cognitoUser.forgotPassword({
-        onSuccess: (result) => {
-          resolve(result);
-        },
-        onFailure: (error) => {
-          reject(error);
-        },
-      });
-    });
+    window.location.href = forgotPasswordUrl;
   }
 
-  static async confirmPassword(
-    email: string,
-    confirmationCode: string,
-    newPassword: string
-  ): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const cognitoUser = new CognitoUser({
-        Username: email,
-        Pool: userPool,
-      });
-
-      cognitoUser.confirmPassword(confirmationCode, newPassword, {
-        onSuccess: (result) => {
-          resolve(result);
-        },
-        onFailure: (error) => {
-          reject(error);
-        },
-      });
-    });
-  }
-
-  static async refreshToken(): Promise<CognitoUserSession | null> {
+  // Refresh tokens using refresh token
+  static async refreshToken(): Promise<boolean> {
     try {
-      const currentUser = userPool.getCurrentUser();
-      if (!currentUser) {
-        return null;
-      }
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) return false;
 
-      return new Promise((resolve, reject) => {
-        currentUser.getSession((error: any, session: CognitoUserSession | null) => {
-          if (error || !session) {
-            reject(error);
-            return;
-          }
-
-          if (session.isValid()) {
-            resolve(session);
-            return;
-          }
-
-          const refreshToken = session.getRefreshToken();
-          currentUser.refreshSession(refreshToken, (refreshError, newSession) => {
-            if (refreshError) {
-              reject(refreshError);
-              return;
-            }
-            resolve(newSession);
-          });
-        });
+      const tokenResponse = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: CLIENT_ID!,
+          refresh_token: refreshToken,
+        }),
       });
+
+      if (!tokenResponse.ok) return false;
+
+      const tokens = await tokenResponse.json();
+
+      // Update stored tokens
+      localStorage.setItem('access_token', tokens.access_token);
+      localStorage.setItem('id_token', tokens.id_token);
+
+      return true;
     } catch (error) {
       console.error('Error refreshing token:', error);
-      return null;
+      return false;
     }
   }
 
+  // Check if user is authenticated
   static isAuthenticated(): boolean {
-    const currentUser = userPool.getCurrentUser();
-    return currentUser !== null;
+    return this.hasValidSession();
   }
 
   static getStoredUser(): User | null {
@@ -278,92 +191,69 @@ export class AuthService {
     }
   }
 
-  // Google OAuth integration
-  static async signInWithGoogle(): Promise<void> {
-    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
-    if (!googleClientId) {
-      throw new Error('Google Client ID not configured');
-    }
+  // Sign in with Google through Cognito Hosted UI
+  static signInWithGoogle(): void {
+    const googleLoginUrl = `https://${COGNITO_DOMAIN}/login?` +
+      `identity_provider=Google&` +
+      `client_id=${CLIENT_ID}&` +
+      `response_type=code&` +
+      `scope=email+openid+profile&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-    // Use Cognito hosted UI with code flow and PKCE for better security
-    const redirectUri = `${window.location.origin}/auth/callback`;
-    const cognitoHostedUIUrl = `https://${process.env.REACT_APP_COGNITO_USER_POOL_DOMAIN}/login?identity_provider=Google&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&client_id=${process.env.REACT_APP_COGNITO_APP_CLIENT_ID}&scope=email+openid+profile`;
-
-    window.location.href = cognitoHostedUIUrl;
+    window.location.href = googleLoginUrl;
   }
 
-  // Handle OAuth callback
-  static async handleOAuthCallback(): Promise<User | null> {
+  // Handle OAuth callback from Cognito Hosted UI
+  static async handleOAuthCallback(authCode?: string): Promise<User | null> {
     try {
-      // Check URL search params for authorization code or errors
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const error = urlParams.get('error');
+      console.log('🚀 AuthService.handleOAuthCallback started');
 
-      if (error) {
-        throw new Error(`OAuth error: ${error}`);
-      }
+      let code = authCode;
+      if (!code) {
+        const urlParams = new URLSearchParams(window.location.search);
+        code = urlParams.get('code') || undefined;
+        const error = urlParams.get('error');
 
-      if (code) {
-        // Exchange authorization code for tokens
-        const tokenResponse = await this.exchangeCodeForTokens(code);
-
-        if (tokenResponse.id_token) {
-          // Decode the ID token to get user information
-          const tokenPayload = JSON.parse(atob(tokenResponse.id_token.split('.')[1]));
-
-          const user: User = {
-            id: tokenPayload.sub,
-            email: tokenPayload.email || 'user@google-oauth.com',
-            name: tokenPayload.name || `${tokenPayload.given_name} ${tokenPayload.family_name}` || 'Google User',
-            companyId: tokenPayload['custom:company_id'] || 'google-company',
-            role: tokenPayload['custom:role'] || 'user',
-            subscriptionTier: tokenPayload['custom:subscription_tier'] || 'basic',
-            tenantId: tokenPayload['custom:tenant_id'] || 'google-tenant',
-          };
-
-          // Store tokens and user info
-          localStorage.setItem('access_token', tokenResponse.access_token);
-          localStorage.setItem('id_token', tokenResponse.id_token);
-          localStorage.setItem('refresh_token', tokenResponse.refresh_token);
-          localStorage.setItem('user', JSON.stringify(user));
-          localStorage.setItem('oauth_provider', 'google');
-          localStorage.setItem('oauth_timestamp', Date.now().toString());
-
-          // Clean up the URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-
-          return user;
+        if (error) {
+          console.error('OAuth error:', error);
+          throw new Error(`Authentication error: ${error}`);
         }
       }
 
-      // Check URL fragment for tokens (implicit flow fallback)
-      const hash = window.location.hash.substring(1);
-      const hashParams = new URLSearchParams(hash);
-      const accessToken = hashParams.get('access_token');
-      const idToken = hashParams.get('id_token');
+      if (!code) {
+        throw new Error('No authorization code received');
+      }
 
-      if (accessToken && idToken) {
-        // Decode the ID token to get user information
-        const tokenPayload = JSON.parse(atob(idToken.split('.')[1]));
+      console.log('🔑 Authorization code received:', code);
+
+      // Exchange authorization code for tokens
+      const tokenResponse = await this.exchangeCodeForTokens(code);
+
+      if (tokenResponse.id_token) {
+        const tokenPayload = JSON.parse(atob(tokenResponse.id_token.split('.')[1]));
 
         const user: User = {
           id: tokenPayload.sub,
-          email: tokenPayload.email || 'user@google-oauth.com',
-          name: tokenPayload.name || `${tokenPayload.given_name} ${tokenPayload.family_name}` || 'OAuth User',
-          companyId: tokenPayload['custom:company_id'] || 'oauth-company',
+          email: tokenPayload.email || 'user@cognito.com',
+          name: tokenPayload.name || `${tokenPayload.given_name || ''} ${tokenPayload.family_name || ''}`.trim() || 'User',
+          companyId: tokenPayload['custom:company_id'] || 'default-company',
           role: tokenPayload['custom:role'] || 'user',
           subscriptionTier: tokenPayload['custom:subscription_tier'] || 'basic',
-          tenantId: tokenPayload['custom:tenant_id'] || 'oauth-tenant',
+          tenantId: tokenPayload['custom:tenant_id'] || 'default-tenant',
         };
 
-        localStorage.setItem('access_token', accessToken);
-        localStorage.setItem('id_token', idToken);
+        // Store tokens and user info
+        localStorage.setItem('access_token', tokenResponse.access_token);
+        localStorage.setItem('id_token', tokenResponse.id_token);
+        if (tokenResponse.refresh_token) {
+          localStorage.setItem('refresh_token', tokenResponse.refresh_token);
+        }
         localStorage.setItem('user', JSON.stringify(user));
+
         return user;
       }
 
-      throw new Error('No authorization code or tokens found in OAuth callback');
+      throw new Error('Invalid token response');
     } catch (error) {
       console.error('OAuth callback error:', error);
       throw error;
@@ -372,30 +262,25 @@ export class AuthService {
 
   // Exchange authorization code for tokens
   private static async exchangeCodeForTokens(code: string): Promise<any> {
-    const redirectUri = `${window.location.origin}/auth/callback`;
-
-    const tokenRequest = {
+    const tokenRequestParams = {
       grant_type: 'authorization_code',
-      client_id: process.env.REACT_APP_COGNITO_APP_CLIENT_ID,
+      client_id: CLIENT_ID!,
       code: code,
-      redirect_uri: redirectUri,
+      redirect_uri: REDIRECT_URI,
     };
 
-    const formBody = Object.keys(tokenRequest)
-      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent((tokenRequest as any)[key]))
-      .join('&');
-
-    const response = await fetch(`https://${process.env.REACT_APP_COGNITO_USER_POOL_DOMAIN}/oauth2/token`, {
+    const response = await fetch(`https://${COGNITO_DOMAIN}/oauth2/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: formBody,
+      body: new URLSearchParams(tokenRequestParams),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+      console.error('Token exchange error details:', errorText);
+      throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
     }
 
     return await response.json();

@@ -1,0 +1,312 @@
+/* GovBiz AI Cognito Hosted UI Custom Styling */
+/* Matches the Material-UI theme and landing page branding */
+
+/* Import Google Fonts - Roboto to match the app */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,0,1;wght@300;400;500;600;700&display=swap');
+
+/* Root variables for consistent theming */
+:root {
+  --primary-color: #1976d2;
+  --primary-light: #42a5f5;
+  --primary-dark: #1565c0;
+  --secondary-color: #dc004e;
+  --secondary-light: #ff5983;
+  --secondary-dark: #9a0036;
+  --background-default: #f5f5f5;
+  --background-paper: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --border-radius: 8px;
+  --box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Global body styling */
+body {
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif !important;
+  background: var(--background-default) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Main container styling */
+.modal-content {
+  background: var(--background-paper) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--box-shadow) !important;
+  border: none !important;
+  max-width: 400px !important;
+  margin: 2rem auto !important;
+}
+
+/* Header styling with logo area */
+.modal-header {
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.1) 0%, rgba(220, 0, 78, 0.05) 100%) !important;
+  border-bottom: 1px solid rgba(25, 118, 210, 0.1) !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 2rem 2rem 1rem 2rem !important;
+  text-align: center !important;
+}
+
+/* Logo and brand styling */
+.logo {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.logo::before {
+  content: "🏢" !important;
+  font-size: 2rem !important;
+  color: var(--primary-color) !important;
+}
+
+/* Main heading */
+.modal-header h1, .modal-header h2 {
+  font-size: 1.75rem !important;
+  font-weight: 600 !important;
+  color: var(--primary-color) !important;
+  margin: 0 !important;
+}
+
+.modal-header h1::after, .modal-header h2::after {
+  content: " - GovBiz AI" !important;
+  font-weight: 500 !important;
+}
+
+/* Form container */
+.modal-body {
+  padding: 2rem !important;
+}
+
+/* Input field styling */
+.form-control {
+  border: 1px solid #e0e0e0 !important;
+  border-radius: var(--border-radius) !important;
+  padding: 12px 16px !important;
+  font-size: 1rem !important;
+  font-family: 'Roboto', sans-serif !important;
+  transition: border-color 0.2s ease !important;
+  margin-bottom: 1rem !important;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2) !important;
+  outline: none !important;
+}
+
+/* Label styling */
+.form-group label {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  margin-bottom: 0.5rem !important;
+  display: block !important;
+}
+
+/* Primary button styling (Sign In, Sign Up, etc.) */
+.btn-primary, input[type="submit"] {
+  background: var(--primary-color) !important;
+  border: none !important;
+  border-radius: var(--border-radius) !important;
+  padding: 12px 24px !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+}
+
+.btn-primary:hover, input[type="submit"]:hover {
+  background: var(--primary-dark) !important;
+}
+
+.btn-primary:active, input[type="submit"]:active {
+  background: var(--primary-dark) !important;
+  transform: translateY(1px) !important;
+}
+
+/* Google OAuth button styling */
+.redirect-customizable, .btn-block {
+  background: #ffffff !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: var(--border-radius) !important;
+  padding: 12px 24px !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+}
+
+.redirect-customizable:hover, .btn-block:hover {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Google icon for OAuth button */
+.redirect-customizable::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='18' height='18'%3E%3Cpath fill='%234285f4' d='M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z'/%3E%3Cpath fill='%2334a853' d='M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z'/%3E%3Cpath fill='%23fbbc05' d='M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z'/%3E%3Cpath fill='%23ea4335' d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z'/%3E%3C/svg%3E") !important;
+  margin-right: 0.5rem !important;
+}
+
+/* Link styling */
+a, .link {
+  color: var(--primary-color) !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  transition: color 0.2s ease !important;
+}
+
+a:hover, .link:hover {
+  color: var(--primary-dark) !important;
+  text-decoration: underline !important;
+}
+
+/* Error message styling */
+.alert, .error {
+  background: rgba(244, 67, 54, 0.1) !important;
+  border: 1px solid rgba(244, 67, 54, 0.3) !important;
+  border-radius: var(--border-radius) !important;
+  color: #d32f2f !important;
+  padding: 12px 16px !important;
+  margin-bottom: 1rem !important;
+  font-size: 0.875rem !important;
+}
+
+/* Success message styling */
+.alert-success {
+  background: rgba(76, 175, 80, 0.1) !important;
+  border: 1px solid rgba(76, 175, 80, 0.3) !important;
+  color: #2e7d32 !important;
+}
+
+/* Footer area */
+.modal-footer {
+  background: var(--background-default) !important;
+  border-top: 1px solid rgba(0,0,0,0.1) !important;
+  border-radius: 0 0 12px 12px !important;
+  padding: 1rem 2rem !important;
+  text-align: center !important;
+}
+
+.modal-footer small {
+  color: var(--text-secondary) !important;
+  font-size: 0.75rem !important;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .modal-content {
+    margin: 1rem !important;
+    max-width: calc(100% - 2rem) !important;
+  }
+
+  .modal-header, .modal-body {
+    padding: 1.5rem !important;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem !important;
+  }
+}
+
+/* Hide Cognito branding */
+.cognito-branding {
+  display: none !important;
+}
+
+/* Custom checkbox styling */
+input[type="checkbox"] {
+  accent-color: var(--primary-color) !important;
+  margin-right: 0.5rem !important;
+}
+
+/* Loading state */
+.spinner, .loading {
+  border: 2px solid rgba(25, 118, 210, 0.2) !important;
+  border-left-color: var(--primary-color) !important;
+  border-radius: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  animation: spin 1s linear infinite !important;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tab navigation styling */
+.nav-tabs {
+  border-bottom: 1px solid rgba(0,0,0,0.1) !important;
+  margin-bottom: 1rem !important;
+}
+
+.nav-tabs .nav-link {
+  color: var(--text-secondary) !important;
+  border: none !important;
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--primary-color) !important;
+  border-bottom: 2px solid var(--primary-color) !important;
+  background: none !important;
+}
+
+/* Additional form elements */
+.form-check-label {
+  color: var(--text-primary) !important;
+  font-size: 0.875rem !important;
+}
+
+/* Override any default Cognito styling */
+* {
+  box-sizing: border-box !important;
+}
+
+/* Ensure consistent font rendering */
+input, button, select, textarea {
+  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif !important;
+}
+
+/* Remove default button styling */
+button {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  font: inherit !important;
+  cursor: pointer !important;
+}
+
+/* Re-apply button styling for form buttons */
+button.btn, button[type="submit"] {
+  background: var(--primary-color) !important;
+  border: none !important;
+  border-radius: var(--border-radius) !important;
+  padding: 12px 24px !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  color: white !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+}
+
+button.btn:hover, button[type="submit"]:hover {
+  background: var(--primary-dark) !important;
+}

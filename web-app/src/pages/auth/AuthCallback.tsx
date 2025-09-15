@@ -3,20 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 
-const OAuthCallback: React.FC = () => {
+const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, error } = useAuth();
 
   useEffect(() => {
     // If authentication is successful, redirect to dashboard
     if (isAuthenticated && !isLoading) {
-      navigate('/dashboard', { replace: true });
+      navigate('/app/dashboard', { replace: true });
     }
 
-    // If there's an error and loading is complete, redirect to login after a delay
+    // If there's an error and loading is complete, redirect to home page after a delay
     if (error && !isLoading) {
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/', { replace: true });
       }, 3000);
     }
 
@@ -24,7 +24,7 @@ const OAuthCallback: React.FC = () => {
     // This handles cases where the OAuth processing might take a moment
     if (!isLoading && !isAuthenticated && !error) {
       setTimeout(() => {
-        navigate('/login', { replace: true });
+        navigate('/', { replace: true });
       }, 5000);
     }
   }, [isAuthenticated, isLoading, error, navigate]);
@@ -46,7 +46,7 @@ const OAuthCallback: React.FC = () => {
           {error}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Redirecting to login page...
+          Redirecting to home page...
         </Typography>
       </Box>
     );
@@ -72,4 +72,4 @@ const OAuthCallback: React.FC = () => {
   );
 };
 
-export default OAuthCallback;
+export default AuthCallback;

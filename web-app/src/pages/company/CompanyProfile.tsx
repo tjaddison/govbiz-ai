@@ -26,19 +26,23 @@ import {
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../../services/api';
+import { AuthService } from '../../services/auth';
+import { useAuth } from '../../contexts/AuthContext';
 import { Company, Location } from '../../types';
 
 const CompanyProfile: React.FC = () => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [showWebscrapeDialog, setShowWebscrapeDialog] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [formData, setFormData] = useState<Partial<Company>>({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
-
   const { data: company, isLoading, error } = useQuery({
     queryKey: ['company-profile'],
     queryFn: apiService.getCompanyProfile,
+    enabled: !authLoading, // Always allow the query, let the API service handle auth/fallback
+    retry: 1, // Only retry once to avoid repeated failed calls
   });
 
   const updateMutation = useMutation({
@@ -142,18 +146,31 @@ const CompanyProfile: React.FC = () => {
     'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
   ];
 
-  if (isLoading) {
+
+  if (authLoading || isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          {authLoading ? 'Authenticating...' : 'Loading company profile...'}
+        </Typography>
       </Box>
     );
   }
 
   if (error) {
+    console.error('Company Profile Error:', error);
     return (
       <Alert severity="error">
-        Failed to load company profile. Please try again.
+        <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
+          Failed to load company profile
+        </Typography>
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85em' }}>
+          Error: {error instanceof Error ? error.message : JSON.stringify(error)}
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1, fontSize: '0.8em', opacity: 0.7 }}>
+          Check browser console for more details
+        </Typography>
       </Alert>
     );
   }

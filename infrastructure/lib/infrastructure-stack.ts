@@ -697,6 +697,19 @@ export class InfrastructureStack extends cdk.Stack {
       preventUserExistenceErrors: true,
     });
 
+    // Configure Cognito Hosted UI customization
+    const uiCustomization = new cognito.CfnUserPoolUICustomizationAttachment(this, 'govbizai-ui-customization', {
+      userPoolId: this.userPool.userPoolId,
+      clientId: this.userPoolClient.userPoolClientId,
+      css: `
+        /* Import custom styling from S3 */
+        @import url('https://govbizai-public-assets.s3.amazonaws.com/cognito-ui-customization.css');
+      `,
+    });
+
+    // Ensure UI customization is applied after the client is created
+    uiCustomization.addDependency(this.userPoolClient.node.defaultChild as cognito.CfnUserPoolClient);
+
     // Ensure Google provider is created before the client (disabled for now)
     // this.userPoolClient.node.addDependency(googleProvider);
 

@@ -5,11 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import ConfirmSignUp from './pages/auth/ConfirmSignUp';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import OAuthCallback from './pages/auth/OAuthCallback';
+import LandingPage from './pages/LandingPage';
+import AuthCallback from './pages/auth/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import CompanyProfile from './pages/company/CompanyProfile';
 import DocumentManagement from './pages/company/DocumentManagement';
@@ -120,23 +117,25 @@ const App: React.FC = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          <Router>
+          <Router
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
             <Routes>
               {/* Public routes */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/confirm-signup" element={<ConfirmSignUp />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/auth/callback" element={<OAuthCallback />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
 
               {/* Protected routes */}
               <Route
-                path="/*"
+                path="/app/*"
                 element={
                   <ProtectedRoute>
                     <Layout>
                       <Routes>
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
                         <Route path="/dashboard" element={<Dashboard />} />
 
                         {/* Company routes */}
@@ -155,7 +154,7 @@ const App: React.FC = () => {
                         <Route path="/analytics" element={<Analytics />} />
 
                         {/* Fallback */}
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
                       </Routes>
                     </Layout>
                   </ProtectedRoute>

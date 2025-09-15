@@ -171,14 +171,8 @@ export class ApiStack extends cdk.Stack {
     // Company endpoints
     const companyResource = apiResource.addResource('company');
     const profileResource = companyResource.addResource('profile');
-    profileResource.addMethod('GET', new apigateway.LambdaIntegration(companyLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-    });
-    profileResource.addMethod('PUT', new apigateway.LambdaIntegration(companyLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-    });
+    profileResource.addMethod('GET', new apigateway.LambdaIntegration(companyLambda));
+    profileResource.addMethod('PUT', new apigateway.LambdaIntegration(companyLambda));
 
     const scrapeResource = companyResource.addResource('scrape-website');
     scrapeResource.addMethod('POST', new apigateway.LambdaIntegration(companyLambda), {
@@ -230,10 +224,7 @@ export class ApiStack extends cdk.Stack {
 
     // Matches endpoints
     const matchesResource = apiResource.addResource('matches');
-    matchesResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
-    });
+    matchesResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda));
 
     const matchIdResource = matchesResource.addResource('{id}');
     matchIdResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {

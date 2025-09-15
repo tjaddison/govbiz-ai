@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode } from 'react';
 import { AuthService } from '../services/auth';
 import { User } from '../types';
 
@@ -10,13 +10,11 @@ interface AuthState {
 }
 
 interface AuthActions {
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, attributes: { [key: string]: string }) => Promise<void>;
+  signIn: () => void;
+  signUp: () => void;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  confirmSignUp: (email: string, confirmationCode: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  confirmPassword: (email: string, confirmationCode: string, newPassword: string) => Promise<void>;
+  signInWithGoogle: () => void;
+  forgotPassword: () => void;
   clearError: () => void;
 }
 
@@ -100,74 +98,92 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const oauthProcessedRef = useRef(false);
 
   useEffect(() => {
+    const checkAuthState = async () => {
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+
+        // Check for OAuth callback
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (urlParams.has('code')) {
+          console.log('🔍 OAuth callback detected in AuthContext');
+
+          // Immediate check and prevention of duplicate execution
+          if (oauthProcessedRef.current) {
+            console.log('🛑 OAuth already processed by this component instance');
+            dispatch({ type: 'SET_LOADING', payload: false });
+            return;
+          }
+
+          // Get the authorization code
+          const authCode = urlParams.get('code');
+
+          if (!authCode) {
+            console.log('🛑 No authorization code found');
+            dispatch({ type: 'SET_LOADING', payload: false });
+            return;
+          }
+
+          // Check if this specific code has already been processed
+          const processedCode = localStorage.getItem('processed_oauth_code');
+          if (processedCode === authCode) {
+            console.log('🛑 This authorization code has already been processed');
+            dispatch({ type: 'SET_LOADING', payload: false });
+            return;
+          }
+
+          // Mark as processing immediately to prevent race conditions
+          oauthProcessedRef.current = true;
+          localStorage.setItem('processed_oauth_code', authCode);
+
+          // Clear the URL immediately to prevent reprocessing
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          console.log('✅ OAuth processing started for code:', authCode);
+
+          try {
+            const user = await AuthService.handleOAuthCallback(authCode);
+            if (user) {
+              dispatch({ type: 'SIGN_IN_SUCCESS', payload: user });
+              return;
+            }
+          } catch (error) {
+            console.error('OAuth processing error:', error);
+            dispatch({ type: 'SIGN_IN_ERROR', payload: 'OAuth authentication failed' });
+            // Redirect to home page on OAuth error
+            window.location.href = window.location.origin;
+            return;
+          } finally {
+            // Clean up the processed code after some time
+            setTimeout(() => {
+              localStorage.removeItem('processed_oauth_code');
+            }, 30000); // 30 seconds
+          }
+        }
+
+        // Check for existing session
+        const user = await AuthService.getCurrentUser();
+
+        dispatch({ type: 'SET_USER', payload: user });
+      } catch (error) {
+        dispatch({ type: 'SET_USER', payload: null });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+
     checkAuthState();
   }, []);
 
-  const checkAuthState = async () => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-
-      // Check for OAuth callback
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('code')) {
-        try {
-          const user = await AuthService.handleOAuthCallback();
-          if (user) {
-            dispatch({ type: 'SIGN_IN_SUCCESS', payload: user });
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return;
-          }
-        } catch (error) {
-          console.error('OAuth callback error:', error);
-          dispatch({ type: 'SIGN_IN_ERROR', payload: 'OAuth authentication failed' });
-          return;
-        }
-      }
-
-      // Check for existing session
-      const user = await AuthService.getCurrentUser();
-      dispatch({ type: 'SET_USER', payload: user });
-    } catch (error) {
-      console.error('Auth state check error:', error);
-      dispatch({ type: 'SET_USER', payload: null });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+  const signIn = (): void => {
+    AuthService.signIn();
   };
 
-  const signIn = async (email: string, password: string): Promise<void> => {
-    try {
-      dispatch({ type: 'SIGN_IN_START' });
-      await AuthService.signIn(email, password);
-      const user = await AuthService.getCurrentUser();
-      if (!user) {
-        throw new Error('Failed to get user information');
-      }
-      dispatch({ type: 'SIGN_IN_SUCCESS', payload: user });
-    } catch (error: any) {
-      const errorMessage = error.message || 'Sign in failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
-  };
-
-  const signUp = async (
-    email: string,
-    password: string,
-    attributes: { [key: string]: string }
-  ): Promise<void> => {
-    try {
-      dispatch({ type: 'SIGN_IN_START' });
-      await AuthService.signUp(email, password, attributes);
-      dispatch({ type: 'SET_LOADING', payload: false });
-    } catch (error: any) {
-      const errorMessage = error.message || 'Sign up failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
+  const signUp = (): void => {
+    AuthService.signUp();
   };
 
   const signOut = async (): Promise<void> => {
@@ -175,58 +191,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AuthService.signOut();
       dispatch({ type: 'SIGN_OUT' });
     } catch (error) {
-      console.error('Sign out error:', error);
+      // Handle error silently
     }
   };
 
-  const signInWithGoogle = async (): Promise<void> => {
-    try {
-      await AuthService.signInWithGoogle();
-    } catch (error: any) {
-      const errorMessage = error.message || 'Google sign in failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
+  const signInWithGoogle = (): void => {
+    AuthService.signInWithGoogle();
   };
 
-  const confirmSignUp = async (email: string, confirmationCode: string): Promise<void> => {
-    try {
-      dispatch({ type: 'SIGN_IN_START' });
-      await AuthService.confirmSignUp(email, confirmationCode);
-      dispatch({ type: 'SET_LOADING', payload: false });
-    } catch (error: any) {
-      const errorMessage = error.message || 'Confirmation failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
-  };
-
-  const forgotPassword = async (email: string): Promise<void> => {
-    try {
-      dispatch({ type: 'SIGN_IN_START' });
-      await AuthService.forgotPassword(email);
-      dispatch({ type: 'SET_LOADING', payload: false });
-    } catch (error: any) {
-      const errorMessage = error.message || 'Forgot password request failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
-  };
-
-  const confirmPassword = async (
-    email: string,
-    confirmationCode: string,
-    newPassword: string
-  ): Promise<void> => {
-    try {
-      dispatch({ type: 'SIGN_IN_START' });
-      await AuthService.confirmPassword(email, confirmationCode, newPassword);
-      dispatch({ type: 'SET_LOADING', payload: false });
-    } catch (error: any) {
-      const errorMessage = error.message || 'Password reset failed';
-      dispatch({ type: 'SIGN_IN_ERROR', payload: errorMessage });
-      throw error;
-    }
+  const forgotPassword = (): void => {
+    AuthService.forgotPassword();
   };
 
   const clearError = (): void => {
@@ -239,9 +213,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signUp,
     signOut,
     signInWithGoogle,
-    confirmSignUp,
     forgotPassword,
-    confirmPassword,
     clearError,
   };
 
