@@ -60,10 +60,9 @@ def lambda_handler(event, context):
             resource_id=username
         )
 
-        # Auto-confirm the user (skip email verification in dev environment)
-        # In production, you might want to remove this
+        # Do not auto-confirm or auto-verify - let user go through normal confirmation process
         event['response']['autoConfirmUser'] = False
-        event['response']['autoVerifyEmail'] = True
+        event['response']['autoVerifyEmail'] = False
 
         print(f"Pre-sign-up validation passed for {email}")
         return event

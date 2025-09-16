@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -6,28 +6,70 @@ import { useAuth } from '../../contexts/AuthContext';
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, error } = useAuth();
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    // If authentication is successful, redirect to dashboard
+    // Clear any existing timeout
+    if (redirectTimeoutRef.current) {
+      clearTimeout(redirectTimeoutRef.current);
+      redirectTimeoutRef.current = null;
+    }
+
+    // Prevent multiple redirects
+    if (hasRedirectedRef.current) {
+      return;
+    }
+
+    console.log('AuthCallback state:', {
+      isAuthenticated,
+      isLoading,
+      error,
+      timestamp: new Date().toISOString()
+    });
+
+    // If authentication is successful, redirect to dashboard immediately
     if (isAuthenticated && !isLoading) {
+      console.log('✅ Authentication successful, redirecting to dashboard');
+      hasRedirectedRef.current = true;
       navigate('/app/dashboard', { replace: true });
+      return;
     }
 
     // If there's an error and loading is complete, redirect to home page after a delay
     if (error && !isLoading) {
-      setTimeout(() => {
-        navigate('/', { replace: true });
+      console.log('❌ Authentication error, redirecting to home page:', error);
+      redirectTimeoutRef.current = setTimeout(() => {
+        if (!hasRedirectedRef.current) {
+          hasRedirectedRef.current = true;
+          navigate('/', { replace: true });
+        }
       }, 3000);
+      return;
     }
 
-    // If we're not loading and not authenticated and no error, wait a bit then redirect
+    // If we're not loading and not authenticated and no error, wait longer then redirect
     // This handles cases where the OAuth processing might take a moment
     if (!isLoading && !isAuthenticated && !error) {
-      setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 5000);
+      console.log('⚠️ No authentication state after loading, will wait before redirecting to home');
+      redirectTimeoutRef.current = setTimeout(() => {
+        if (!hasRedirectedRef.current) {
+          console.log('❌ Final redirect to home - authentication failed');
+          hasRedirectedRef.current = true;
+          navigate('/', { replace: true });
+        }
+      }, 12000); // Extended timeout for OAuth processing (12 seconds)
     }
   }, [isAuthenticated, isLoading, error, navigate]);
+
+  useEffect(() => {
+    // Cleanup timeout on unmount
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (error) {
     return (

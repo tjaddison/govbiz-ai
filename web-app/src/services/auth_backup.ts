@@ -19,12 +19,12 @@ if (typeof window !== 'undefined') {
     clientId: CLIENT_ID ? CLIENT_ID.substring(0, 5) + '...' : 'NOT SET',
     redirectUri: REDIRECT_URI
   });
-
 }
 
 export class AuthService {
   // Redirect to Cognito Hosted UI for sign in
   static signIn(): void {
+
     const loginUrl = `https://${COGNITO_DOMAIN}/login?` +
       `client_id=${CLIENT_ID}&` +
       `response_type=code&` +
@@ -48,7 +48,16 @@ export class AuthService {
   // Sign out and redirect to home page
   static async signOut(): Promise<void> {
     // Clear local storage
-    this.clearTokens();
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('id_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('oauth_code');
+    localStorage.removeItem('oauth_provider');
+    localStorage.removeItem('oauth_timestamp');
+    localStorage.removeItem('processed_oauth_code');
+    localStorage.removeItem('oauth_processing_timestamp');
+    localStorage.removeItem('oauth_context_processing');
 
     // Redirect directly to home page instead of Cognito logout
     // This avoids the Cognito logout redirect issues
@@ -68,7 +77,7 @@ export class AuthService {
       const parts = idToken.split('.');
       if (parts.length !== 3) {
         console.error('hasValidSession - invalid JWT format, expected 3 parts, got:', parts.length);
-        // this.clearTokens(); // Temporarily disabled for debugging
+        this.clearTokens();
         return false;
       }
 
@@ -79,53 +88,37 @@ export class AuthService {
         tokenPayload = JSON.parse(decodedPayload);
       } catch (parseError) {
         console.error('hasValidSession - JWT payload parse error:', parseError);
-        // this.clearTokens(); // Temporarily disabled for debugging
+        this.clearTokens();
         return false;
       }
 
       // Validate required claims
       if (!tokenPayload.exp || typeof tokenPayload.exp !== 'number') {
         console.error('hasValidSession - invalid or missing exp claim:', tokenPayload.exp);
-        // this.clearTokens(); // Temporarily disabled for debugging
+        this.clearTokens();
         return false;
       }
 
       if (!tokenPayload.sub) {
         console.error('hasValidSession - missing sub claim');
-        // this.clearTokens(); // Temporarily disabled for debugging
+        this.clearTokens();
         return false;
       }
 
-      // Check expiration with buffer time (2 minutes before actual expiration)
+      // Check expiration with buffer time (5 minutes before actual expiration)
       const currentTime = Math.floor(Date.now() / 1000);
-      const bufferTime = 2 * 60; // 2 minutes (reduced from 5 minutes)
+      const bufferTime = 5 * 60; // 5 minutes
       const effectiveExpiration = tokenPayload.exp - bufferTime;
 
-      console.log('🕒 Token expiration check:', {
-        currentTime,
-        tokenExp: tokenPayload.exp,
-        effectiveExp: effectiveExpiration,
-        timeUntilExpiry: tokenPayload.exp - currentTime,
-        isActuallyExpired: currentTime >= tokenPayload.exp,
-        willFailBufferCheck: currentTime >= effectiveExpiration
-      });
-
       if (currentTime >= effectiveExpiration) {
-        console.warn('⚠️ hasValidSession - token expired or about to expire', {
+        console.debug('hasValidSession - token expired or about to expire', {
           currentTime,
           tokenExp: tokenPayload.exp,
           effectiveExp: effectiveExpiration,
-          timeUntilActualExpiry: tokenPayload.exp - currentTime,
-          isActuallyExpired: currentTime >= tokenPayload.exp
+          isExpired: currentTime >= tokenPayload.exp
         });
-        if (currentTime >= tokenPayload.exp) {
-          console.error('❌ Token is actually expired, clearing tokens');
-          this.clearTokens();
-        } else {
-          console.warn('⚠️ Token expires soon but is still valid, allowing access');
-          // Don't clear tokens if they're still technically valid
-        }
-        return currentTime < tokenPayload.exp; // Return true if not actually expired
+        this.clearTokens();
+        return false;
       }
 
       // Additional validation for issued at time
@@ -175,24 +168,8 @@ export class AuthService {
   // Get current authenticated user with robust error handling
   static async getCurrentUser(): Promise<User | null> {
     try {
-      console.log('👤 getCurrentUser called');
-
-      // Check what tokens we have before validation
-      const hasIdToken = !!localStorage.getItem('id_token');
-      const hasAccessToken = !!localStorage.getItem('access_token');
-      const hasUser = !!localStorage.getItem('user');
-
-      console.log('📊 getCurrentUser - storage check:', {
-        hasIdToken,
-        hasAccessToken,
-        hasUser
-      });
-
       // First check if we have a valid session
-      const hasValid = this.hasValidSession();
-      console.log('🔍 getCurrentUser - session validity check:', hasValid);
-
-      if (!hasValid) {
+      if (!this.hasValidSession()) {
         console.debug('getCurrentUser - no valid session found');
         return null;
       }
@@ -268,7 +245,7 @@ export class AuthService {
     if (tokenPayload.email && typeof tokenPayload.email === 'string') {
       // Extract name part from email
       const emailName = tokenPayload.email.split('@')[0];
-      return emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+      return emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
     }
 
     return 'User';
@@ -404,60 +381,14 @@ export class AuthService {
     }
   }
 
-  // Generate PKCE challenge for OAuth security
-  private static generatePKCE(): { codeVerifier: string; codeChallenge: string } {
-    // Generate code verifier (43-128 characters)
-    const codeVerifier = Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15);
-
-    // For simplicity, using plain challenge method (S256 would be better but requires crypto)
-    const codeChallenge = codeVerifier;
-
-    return { codeVerifier, codeChallenge };
-  }
-
   // Sign in with Google through Cognito Hosted UI
   static signInWithGoogle(): void {
-    // Generate a state parameter for CSRF protection
-    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem('oauth_state', state);
-
-    // Try without PKCE first to isolate the issue
     const googleLoginUrl = `https://${COGNITO_DOMAIN}/login?` +
       `identity_provider=Google&` +
       `client_id=${CLIENT_ID}&` +
       `response_type=code&` +
       `scope=email+openid+profile&` +
-      `state=${encodeURIComponent(state)}&` +
       `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
-
-    console.log('🔗 Initiating Google OAuth WITHOUT PKCE (testing):', googleLoginUrl);
-    console.log('🔗 OAuth parameters:', {
-      identity_provider: 'Google',
-      client_id: CLIENT_ID,
-      response_type: 'code',
-      scope: 'email+openid+profile',
-      state: state,
-      redirect_uri: REDIRECT_URI,
-      cognitoDomain: COGNITO_DOMAIN
-    });
-
-    // Log the exact URL parts for debugging
-    console.log('🔍 URL Analysis:', {
-      fullUrl: googleLoginUrl,
-      domain: COGNITO_DOMAIN,
-      expectedRedirect: REDIRECT_URI,
-      currentOrigin: window.location.origin,
-      exactMatch: REDIRECT_URI === `${window.location.origin}/auth/callback`
-    });
-
-    // Clear any existing OAuth state from previous attempts
-    localStorage.removeItem('auth_tokens');
-    localStorage.removeItem('user_profile');
-    localStorage.removeItem('last_oauth_url');
-    localStorage.removeItem('oauth_code_verifier'); // Clear PKCE verifier
 
     window.location.href = googleLoginUrl;
   }
@@ -467,49 +398,12 @@ export class AuthService {
     try {
       console.log('🚀 AuthService.handleOAuthCallback started');
 
-      // Clear any previous OAuth processing state to allow fresh attempts
-      localStorage.removeItem('last_oauth_url');
-
       let code = authCode;
       if (!code) {
         const urlParams = new URLSearchParams(window.location.search);
         code = urlParams.get('code') || undefined;
-        const state = urlParams.get('state');
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
-
-        console.log('🔍 OAuth callback URL parameters:', {
-          hasCode: !!code,
-          codeLength: code?.length,
-          state: state,
-          error: error,
-          errorDescription: errorDescription,
-          fullUrl: window.location.href,
-          currentOrigin: window.location.origin,
-          pathname: window.location.pathname,
-          search: window.location.search
-        });
-
-        // Validate state parameter to prevent CSRF attacks
-        if (state) {
-          const storedState = localStorage.getItem('oauth_state');
-          console.log('🔐 State validation:', {
-            receivedState: state,
-            storedState: storedState,
-            match: state === storedState
-          });
-
-          if (state !== storedState) {
-            console.error('❌ OAuth state mismatch - possible CSRF attack');
-            localStorage.removeItem('oauth_state');
-            throw new Error('Invalid OAuth state - security error');
-          }
-
-          // Clean up state after validation
-          localStorage.removeItem('oauth_state');
-        } else {
-          console.log('⚠️ No state parameter in OAuth callback');
-        }
 
         if (error) {
           const errorMsg = errorDescription || error;
@@ -625,31 +519,18 @@ export class AuthService {
       throw new Error('Missing Cognito configuration. Please check environment variables.');
     }
 
-    // Get PKCE code verifier if available
-    const codeVerifier = localStorage.getItem('oauth_code_verifier');
-
-    const tokenRequestParams: any = {
+    const tokenRequestParams = {
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
       code: code,
       redirect_uri: REDIRECT_URI,
     };
 
-    // Add PKCE code verifier if present
-    if (codeVerifier) {
-      tokenRequestParams.code_verifier = codeVerifier;
-      console.log('🔐 Including PKCE code_verifier in token exchange');
-    } else {
-      console.log('🔐 No PKCE code_verifier found - using standard OAuth flow');
-    }
-
     console.log('🔄 Exchanging code for tokens:', {
       cognitoDomain: COGNITO_DOMAIN,
       clientId: CLIENT_ID.substring(0, 5) + '...',
       redirectUri: REDIRECT_URI,
-      codeLength: code.length,
-      fullCode: code, // Add full code for debugging
-      tokenRequestParams: tokenRequestParams
+      codeLength: code.length
     });
 
     const tokenUrl = `https://${COGNITO_DOMAIN}/oauth2/token`;
@@ -668,10 +549,8 @@ export class AuthService {
 
       if (!response.ok) {
         let errorDetails;
-        let errorText = '';
         try {
-          errorText = await response.text();
-          console.log('📝 Raw error response:', errorText);
+          const errorText = await response.text();
           try {
             errorDetails = JSON.parse(errorText);
           } catch {
@@ -684,10 +563,7 @@ export class AuthService {
         console.error('Token exchange failed:', {
           status: response.status,
           statusText: response.statusText,
-          errorDetails,
-          rawErrorText: errorText,
-          tokenUrl: tokenUrl,
-          requestParams: tokenRequestParams
+          errorDetails
         });
 
         throw new Error(`Token exchange failed (${response.status}): ${errorDetails.error || 'Unknown error'}`);
@@ -717,9 +593,6 @@ export class AuthService {
         tokenType: tokenData.token_type,
         expiresIn: tokenData.expires_in
       });
-
-      // Clean up PKCE code verifier after successful exchange
-      localStorage.removeItem('oauth_code_verifier');
 
       return tokenData;
     } catch (error) {
