@@ -21,7 +21,7 @@ import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 
 export class InfrastructureStack extends cdk.Stack {
-  public readonly vpc: ec2.Vpc;
+  // VPC removed for cost optimization
   public readonly rawDocumentsBucket: s3.Bucket;
   public readonly processedDocumentsBucket: s3.Bucket;
   public readonly embeddingsBucket: s3.Bucket;
@@ -87,93 +87,9 @@ export class InfrastructureStack extends cdk.Stack {
       resources: ['*']
     }));
 
-    // 1. Create VPC with public/private subnets
-    this.vpc = new ec2.Vpc(this, 'govbizai-vpc', {
-      vpcName: 'govbizai-vpc',
-      maxAzs: 3,
-      natGateways: 2, // For high availability
-      enableDnsHostnames: true,
-      enableDnsSupport: true,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: 'govbizai-public-subnet',
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-        {
-          cidrMask: 24,
-          name: 'govbizai-private-subnet',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        },
-        {
-          cidrMask: 28,
-          name: 'govbizai-isolated-subnet',
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
-        }
-      ],
-      gatewayEndpoints: {
-        s3: {
-          service: ec2.GatewayVpcEndpointAwsService.S3,
-        },
-        dynamodb: {
-          service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-        }
-      }
-    });
+    // VPC removed for cost optimization - Lambda functions will use AWS managed VPC
 
-    // 2. Create VPC Endpoints for AWS services
-    const vpcEndpointSecurityGroup = this.createVpcEndpointSecurityGroup();
-    
-    const vpcEndpoints = [
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.BEDROCK,
-        name: 'govbizai-bedrock-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.BEDROCK_RUNTIME,
-        name: 'govbizai-bedrock-runtime-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.LAMBDA,
-        name: 'govbizai-lambda-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.SQS,
-        name: 'govbizai-sqs-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.SNS,
-        name: 'govbizai-sns-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
-        name: 'govbizai-cloudwatch-logs-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.STEP_FUNCTIONS,
-        name: 'govbizai-step-functions-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.EVENTBRIDGE,
-        name: 'govbizai-eventbridge-endpoint'
-      },
-      {
-        service: ec2.InterfaceVpcEndpointAwsService.TEXTRACT,
-        name: 'govbizai-textract-endpoint'
-      }
-    ];
-
-    vpcEndpoints.forEach(endpoint => {
-      new ec2.InterfaceVpcEndpoint(this, endpoint.name, {
-        vpc: this.vpc,
-        service: endpoint.service,
-        subnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
-        },
-        privateDnsEnabled: true,
-        securityGroups: [vpcEndpointSecurityGroup]
-      });
-    });
+    // VPC endpoints removed for cost optimization - Lambda functions will use public AWS endpoints
 
     // 3. Create S3 Buckets with encryption and lifecycle policies
     const s3BucketProps: Partial<s3.BucketProps> = {
@@ -697,18 +613,8 @@ export class InfrastructureStack extends cdk.Stack {
       preventUserExistenceErrors: true,
     });
 
-    // Configure Cognito Hosted UI customization
-    const uiCustomization = new cognito.CfnUserPoolUICustomizationAttachment(this, 'govbizai-ui-customization', {
-      userPoolId: this.userPool.userPoolId,
-      clientId: this.userPoolClient.userPoolClientId,
-      css: `
-        /* Import custom styling from S3 */
-        @import url('https://govbizai-public-assets.s3.amazonaws.com/cognito-ui-customization.css');
-      `,
-    });
-
-    // Ensure UI customization is applied after the client is created
-    uiCustomization.addDependency(this.userPoolClient.node.defaultChild as cognito.CfnUserPoolClient);
+    // Cognito UI customization temporarily disabled due to AWS restrictions
+    // Can be re-enabled later with proper CSS classes
 
     // Ensure Google provider is created before the client (disabled for now)
     // this.userPoolClient.node.addDependency(googleProvider);
@@ -829,10 +735,7 @@ export class InfrastructureStack extends cdk.Stack {
         COMPANIES_TABLE_NAME: this.companiesTable.tableName,
       },
       layers: [commonLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     };
 
     // Create Tenant Function
@@ -952,22 +855,7 @@ export class InfrastructureStack extends cdk.Stack {
     });
   }
 
-  private createVpcEndpointSecurityGroup(): ec2.SecurityGroup {
-    const sg = new ec2.SecurityGroup(this, 'govbizai-vpc-endpoint-sg', {
-      vpc: this.vpc,
-      description: 'Security group for VPC endpoints',
-      allowAllOutbound: false,
-    });
-
-    // Allow HTTPS traffic from VPC
-    sg.addIngressRule(
-      ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
-      ec2.Port.tcp(443),
-      'Allow HTTPS from VPC'
-    );
-
-    return sg;
-  }
+  // VPC security group method removed for cost optimization
 
   private createIAMRoles(): void {
     // Lambda execution role for document processing
@@ -975,7 +863,7 @@ export class InfrastructureStack extends cdk.Stack {
       roleName: 'govbizai-lambda-execution-role',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+        // VPC access role removed for cost optimization
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
       inlinePolicies: {
@@ -1155,10 +1043,7 @@ export class InfrastructureStack extends cdk.Stack {
         TEXTRACT_ROLE_ARN: `arn:aws:iam::${this.account}:role/govbizai-lambda-execution-role`,
       },
       layers: [documentProcessingLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     };
 
     // 1. Text Extraction Function (PyMuPDF)
@@ -1456,7 +1341,7 @@ export class InfrastructureStack extends cdk.Stack {
       roleName: 'govbizai-embedding-lambda-role',
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+        // VPC access role removed for cost optimization
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
         embeddingPolicy,
       ],
@@ -1487,10 +1372,7 @@ export class InfrastructureStack extends cdk.Stack {
         BEDROCK_MODEL_ARN: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
       },
       layers: [embeddingLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     });
 
     // Create semantic search function
@@ -1509,10 +1391,7 @@ export class InfrastructureStack extends cdk.Stack {
         BEDROCK_MODEL_ARN: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
       },
       layers: [embeddingLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     });
 
     // Create hybrid search function
@@ -1533,10 +1412,7 @@ export class InfrastructureStack extends cdk.Stack {
         SEMANTIC_SEARCH_FUNCTION: 'govbizai-semantic-search', // Use static function name instead of reference
       },
       layers: [embeddingLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     });
 
     // Grant additional permissions for the hybrid search function to call other functions
@@ -1620,10 +1496,7 @@ export class InfrastructureStack extends cdk.Stack {
         PROCESSING_QUEUE_URL: opportunityProcessingQueue.queueUrl,
       },
       layers: [samgovLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     };
 
     // 1. CSV Download and Processing Function
@@ -1933,10 +1806,7 @@ export class InfrastructureStack extends cdk.Stack {
         TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
       },
       layers: [companyProfileLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     };
 
     // 1. S3 Presigned URL Generator
@@ -2207,10 +2077,7 @@ export class InfrastructureStack extends cdk.Stack {
         CACHE_TABLE: matchCacheTable.tableName,
       },
       layers: [matchingEngineLayer],
-      vpc: this.vpc,
-      vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
+      // VPC removed for cost optimization
     };
 
     // 1. Semantic Similarity Calculator

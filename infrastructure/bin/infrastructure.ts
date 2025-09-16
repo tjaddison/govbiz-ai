@@ -47,16 +47,16 @@ new ApiStack(app, 'GovBizAIApiStack', {
   embeddingsBucket: infraStack.embeddingsBucket,
 });
 
-// Deploy web application
-new WebAppStack(app, 'GovBizAIWebAppStack', {
-  env: {
-    account: account,
-    region: region,
-  },
-  description: 'GovBizAI Web Application - React frontend with CloudFront distribution and S3 hosting',
-  tags: {
-    Project: 'govbizai',
-    Environment: 'dev',
-    Phase: 'web-application',
-  },
-});
+// Deploy web application - temporarily commented out for VPC deployment
+// new WebAppStack(app, 'GovBizAIWebAppStack', {
+//   env: {
+//     account: account,
+//     region: region,
+//   },
+//   description: 'GovBizAI Web Application - React frontend with CloudFront distribution and S3 hosting',
+//   tags: {
+//     Project: 'govbizai',
+//     Environment: 'dev',
+//     Phase: 'web-application',
+//   },
+// });
