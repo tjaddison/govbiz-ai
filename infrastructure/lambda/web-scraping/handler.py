@@ -95,6 +95,9 @@ def process_scraping_request(request_data: Dict[str, Any]):
         # Update company profile with scraping status
         update_scraping_status(company_id, 'completed', f"Successfully scraped {len(scraped_content)} pages")
 
+        # Trigger profile re-embedding after scraping
+        trigger_profile_reembedding(company_id)
+
         logger.info(f"Successfully completed scraping for company {company_id}")
 
     except Exception as e:
@@ -433,6 +436,25 @@ def update_scraping_status(company_id: str, status: str, message: str):
 
     except Exception as e:
         logger.error(f"Error updating scraping status: {str(e)}")
+
+def trigger_profile_reembedding(company_id: str):
+    """Trigger company profile re-embedding after web scraping"""
+    try:
+        profile_embedding_queue_url = os.environ.get('PROFILE_EMBEDDING_QUEUE_URL')
+        if profile_embedding_queue_url:
+            sqs.send_message(
+                QueueUrl=profile_embedding_queue_url,
+                MessageBody=json.dumps({
+                    'action': 'reembed_profile',
+                    'company_id': company_id,
+                    'timestamp': datetime.utcnow().isoformat() + 'Z'
+                })
+            )
+            logger.info(f"Triggered profile re-embedding for company: {company_id}")
+        else:
+            logger.warning("PROFILE_EMBEDDING_QUEUE_URL not configured")
+    except Exception as e:
+        logger.warning(f"Failed to trigger profile re-embedding: {str(e)}")
 
 def get_cors_headers() -> Dict[str, str]:
     """Get CORS headers for API responses"""

@@ -305,6 +305,10 @@ def handle_delete_document(company_id: str, document_id: str) -> Dict[str, Any]:
             except Exception as e:
                 logger.warning(f"Failed to delete from S3: {str(e)}")
 
+        # Delete associated embeddings and trigger profile re-embedding
+        cleanup_document_embeddings(company_id, document_id)
+        trigger_profile_reembedding(company_id)
+
         return {
             'statusCode': 200,
             'headers': get_cors_headers(),
@@ -317,6 +321,58 @@ def handle_delete_document(company_id: str, document_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error deleting document: {str(e)}")
         return create_error_response(500, 'DELETE_DOCUMENT_FAILED', 'Failed to delete document')
+
+def cleanup_document_embeddings(company_id: str, document_id: str):
+    """Delete embeddings associated with a document"""
+    try:
+        # List all embedding files for this document
+        s3_prefix = f"{company_id}/embeddings/documents/{document_id}/"
+
+        response = s3_client.list_objects_v2(
+            Bucket=os.environ.get('EMBEDDINGS_BUCKET', PROCESSED_DOCUMENTS_BUCKET),
+            Prefix=s3_prefix
+        )
+
+        if 'Contents' in response:
+            # Delete each embedding file
+            for obj in response['Contents']:
+                s3_client.delete_object(
+                    Bucket=os.environ.get('EMBEDDINGS_BUCKET', PROCESSED_DOCUMENTS_BUCKET),
+                    Key=obj['Key']
+                )
+                logger.info(f"Deleted embedding: {obj['Key']}")
+
+            logger.info(f"Cleaned up {len(response['Contents'])} embeddings for document {document_id}")
+        else:
+            logger.info(f"No embeddings found for document {document_id}")
+
+    except Exception as e:
+        logger.warning(f"Failed to cleanup document embeddings: {str(e)}")
+
+def trigger_profile_reembedding(company_id: str):
+    """Trigger company profile re-embedding after document changes"""
+    try:
+        processing_queue_url = os.environ.get('PROCESSING_QUEUE_URL')
+        if processing_queue_url:
+            import boto3
+            sqs = boto3.client('sqs')
+
+            message_body = {
+                'action': 'reembed_profile',
+                'company_id': company_id,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+
+            sqs.send_message(
+                QueueUrl=processing_queue_url,
+                MessageBody=json.dumps(message_body)
+            )
+
+            logger.info(f"Triggered profile re-embedding for company: {company_id}")
+        else:
+            logger.warning("PROCESSING_QUEUE_URL not configured for profile re-embedding")
+    except Exception as e:
+        logger.warning(f"Failed to trigger profile re-embedding: {str(e)}")
 
 def trigger_document_processing(company_id: str, document_id: str):
     """Trigger document processing pipeline"""

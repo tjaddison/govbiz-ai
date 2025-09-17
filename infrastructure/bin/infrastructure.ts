@@ -25,7 +25,24 @@ const infraStack = new InfrastructureStack(app, 'GovBizAIInfrastructureStack', {
   },
 });
 
-// Deploy API Gateway stack (depends on infrastructure)
+// Deploy document processing stack first
+const processingStack = new ProcessingStack(app, 'GovBizAIProcessingStack', {
+  env: {
+    account: account,
+    region: region,
+  },
+  description: 'GovBizAI Processing - Document processing, embedding generation, and web scraping',
+  tags: {
+    Project: 'govbizai',
+    Environment: 'dev',
+    Phase: 'document-processing',
+  },
+  documentsBucket: infraStack.rawDocumentsBucket,
+  embeddingsBucket: infraStack.embeddingsBucket,
+  companiesTable: infraStack.companiesTable,
+});
+
+// Deploy API Gateway stack (depends on infrastructure and processing)
 new ApiStack(app, 'GovBizAIApiStack', {
   env: {
     account: account,
@@ -46,23 +63,8 @@ new ApiStack(app, 'GovBizAIApiStack', {
   documentsTable: infraStack.userProfilesTable, // Using userProfiles table for document metadata
   documentsBucket: infraStack.rawDocumentsBucket,
   embeddingsBucket: infraStack.embeddingsBucket,
-});
-
-// Deploy document processing stack
-new ProcessingStack(app, 'GovBizAIProcessingStack', {
-  env: {
-    account: account,
-    region: region,
-  },
-  description: 'GovBizAI Processing - Document processing, embedding generation, and web scraping',
-  tags: {
-    Project: 'govbizai',
-    Environment: 'dev',
-    Phase: 'document-processing',
-  },
-  documentsBucket: infraStack.rawDocumentsBucket,
-  embeddingsBucket: infraStack.embeddingsBucket,
-  companiesTable: infraStack.companiesTable,
+  profileEmbeddingQueueUrl: processingStack.profileEmbeddingQueue.queueUrl,
+  webScrapingQueueUrl: processingStack.webScrapingQueue.queueUrl,
 });
 
 // Deploy web application

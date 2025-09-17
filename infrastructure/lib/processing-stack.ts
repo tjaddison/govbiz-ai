@@ -252,5 +252,18 @@ export class ProcessingStack extends cdk.Stack {
     this.documentProcessingQueue.grantConsumeMessages(this.documentProcessingFunction);
     this.webScrapingQueue.grantConsumeMessages(this.webScrapingFunction);
     this.profileEmbeddingQueue.grantConsumeMessages(this.profileEmbeddingFunction);
+
+    // Output queue URLs for other stacks to use
+    new cdk.CfnOutput(this, 'ProfileEmbeddingQueueUrl', {
+      value: this.profileEmbeddingQueue.queueUrl,
+      description: 'URL of the Profile Embedding SQS Queue',
+      exportName: 'govbizai-profile-embedding-queue-url',
+    });
+
+    new cdk.CfnOutput(this, 'WebScrapingQueueUrl', {
+      value: this.webScrapingQueue.queueUrl,
+      description: 'URL of the Web Scraping SQS Queue',
+      exportName: 'govbizai-web-scraping-queue-url',
+    });
   }
 }

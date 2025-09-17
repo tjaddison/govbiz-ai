@@ -449,9 +449,10 @@ def update_document_status(company_id: str, document_id: str, status: str, messa
 def trigger_profile_reembedding(company_id: str):
     """Trigger company profile re-embedding after document processing"""
     try:
-        if PROCESSING_QUEUE_URL:
+        profile_embedding_queue_url = os.environ.get('PROFILE_EMBEDDING_QUEUE_URL')
+        if profile_embedding_queue_url:
             sqs.send_message(
-                QueueUrl=PROCESSING_QUEUE_URL,
+                QueueUrl=profile_embedding_queue_url,
                 MessageBody=json.dumps({
                     'action': 'reembed_profile',
                     'company_id': company_id,
@@ -459,5 +460,7 @@ def trigger_profile_reembedding(company_id: str):
                 })
             )
             logger.info(f"Triggered profile re-embedding for company: {company_id}")
+        else:
+            logger.warning("PROFILE_EMBEDDING_QUEUE_URL not configured")
     except Exception as e:
         logger.warning(f"Failed to trigger profile re-embedding: {str(e)}")

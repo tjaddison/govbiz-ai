@@ -20,6 +20,8 @@ export interface ApiStackProps extends cdk.StackProps {
   documentsTable: dynamodb.Table;
   documentsBucket: s3.Bucket;
   embeddingsBucket: s3.Bucket;
+  profileEmbeddingQueueUrl?: string;
+  webScrapingQueueUrl?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -124,6 +126,8 @@ export class ApiStack extends cdk.Stack {
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
         EMBEDDINGS_BUCKET: props.embeddingsBucket.bucketName,
         TENANTS_TABLE_NAME: props.companiesTable.tableName, // Using companies table for tenant data
+        PROFILE_EMBEDDING_QUEUE_URL: props.profileEmbeddingQueueUrl || '',
+        WEB_SCRAPING_QUEUE_URL: props.webScrapingQueueUrl || '',
       },
       logRetention: logs.RetentionDays.ONE_MONTH,
     });

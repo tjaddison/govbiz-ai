@@ -9,6 +9,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
@@ -1942,6 +1943,7 @@ export class InfrastructureStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(15),
       memorySize: 2048,
     });
+
 
     // Grant permissions to all company profile functions
     const companyProfileFunctions = [
