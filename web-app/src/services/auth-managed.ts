@@ -436,12 +436,40 @@ export class ManagedAuthService {
     return {
       id: getValue('sub'),
       email: getValue('email'),
-      name: getValue('name'),
+      name: this.extractUserNameFromAttributes(attributes),
       companyId: getValue('custom:company_id') || 'default-company',
       tenantId: getValue('custom:tenant_id') || getValue('custom:company_id') || 'default-tenant',
       role: (getValue('custom:role') as 'admin' | 'user' | 'viewer') || 'user',
       subscriptionTier: (getValue('custom:subscription_tier') as 'basic' | 'professional' | 'enterprise') || 'basic'
     };
+  }
+
+  // Extract user name from Cognito attributes with fallbacks
+  private static extractUserNameFromAttributes(attributes: CognitoUserAttribute[]): string {
+    const getValue = (name: string) =>
+      attributes.find(attr => attr.getName() === name)?.getValue() || '';
+
+    // Try different name fields in order of preference
+    if (getValue('name') && typeof getValue('name') === 'string') {
+      return getValue('name').trim();
+    }
+
+    if (getValue('given_name') || getValue('family_name')) {
+      const fullName = `${getValue('given_name') || ''} ${getValue('family_name') || ''}`.trim();
+      if (fullName) return fullName;
+    }
+
+    if (getValue('nickname') && typeof getValue('nickname') === 'string') {
+      return getValue('nickname').trim();
+    }
+
+    if (getValue('email') && typeof getValue('email') === 'string') {
+      // Extract name part from email
+      const emailName = getValue('email').split('@')[0];
+      return emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+    }
+
+    return 'User';
   }
 
   private static storeTokens(session: CognitoUserSession): void {
