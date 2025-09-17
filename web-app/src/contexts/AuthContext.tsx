@@ -110,14 +110,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   const oauthProcessedRef = useRef(false);
 
-  // Check if OAuth was recently processed (within last 30 seconds)
-  const isRecentOAuthProcess = () => {
-    const timestamp = localStorage.getItem('oauth_processing_timestamp');
-    if (!timestamp) return false;
-    const now = Date.now();
-    const processTime = parseInt(timestamp);
-    return (now - processTime) < 30000; // 30 seconds
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -131,7 +123,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const urlParams = new URLSearchParams(window.location.search);
 
         if (urlParams.has('code')) {
-          console.log('🔍 OAuth callback detected in AuthContext');
+          console.log('🔍 OAuth callback detected in AuthContext', {
+            currentTokens: {
+              hasAccessToken: !!localStorage.getItem('access_token'),
+              hasIdToken: !!localStorage.getItem('id_token'),
+              hasUser: !!localStorage.getItem('user')
+            }
+          });
 
           // Immediate check and prevention of duplicate execution
           if (oauthProcessedRef.current) {
@@ -237,18 +235,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } else {
               console.log('🛑 No existing session found');
             }
-          }
-        } else if (isRecentOAuthProcess()) {
-          // OAuth processing occurred recently, validate the session
-          console.log('🔄 Recent OAuth processing detected, validating session state');
-          const user = await AuthService.getCurrentUser();
-          if (isMounted && user) {
-            // Ensure state is properly set even after OAuth processing
-            dispatch({ type: 'SET_USER', payload: user });
-            console.log('✅ Post-OAuth session validation successful for user:', user.email);
-          } else if (isMounted) {
-            console.log('🛑 Post-OAuth session validation failed');
-            dispatch({ type: 'SET_USER', payload: null });
           }
         } else {
           console.log('🔄 OAuth processing completed in previous session');

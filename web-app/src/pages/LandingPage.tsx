@@ -22,12 +22,12 @@ import {
   Analytics,
   AutoAwesome,
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+// Note: No longer using useAuth since we navigate to auth pages instead
 import { useNavigate } from 'react-router-dom';
 
 const LandingPage: React.FC = () => {
   const theme = useTheme();
-  const { signIn, signUp } = useAuth();
+  // No longer destructuring auth methods since we navigate to auth pages
   const navigate = useNavigate();
 
   const features = [
@@ -85,14 +85,14 @@ const LandingPage: React.FC = () => {
         <Stack direction="row" spacing={1}>
           <Button
             variant="outlined"
-            onClick={signIn}
+            onClick={() => navigate('/auth/login')}
             sx={{ minWidth: 100 }}
           >
             Sign In
           </Button>
           <Button
             variant="contained"
-            onClick={signUp}
+            onClick={() => navigate('/auth/signup')}
             sx={{ minWidth: 100 }}
           >
             Get Started
@@ -144,7 +144,7 @@ const LandingPage: React.FC = () => {
                   <Button
                     variant="contained"
                     size="large"
-                    onClick={signUp}
+                    onClick={() => navigate('/auth/signup')}
                     endIcon={<ArrowForward />}
                     sx={{
                       py: 1.5,
@@ -158,7 +158,7 @@ const LandingPage: React.FC = () => {
                   <Button
                     variant="outlined"
                     size="large"
-                    onClick={signIn}
+                    onClick={() => navigate('/auth/login')}
                     sx={{
                       py: 1.5,
                       px: 4,
@@ -323,7 +323,7 @@ const LandingPage: React.FC = () => {
           <Button
             variant="contained"
             size="large"
-            onClick={signUp}
+            onClick={() => navigate('/auth/signup')}
             endIcon={<ArrowForward />}
             sx={{
               py: 2,

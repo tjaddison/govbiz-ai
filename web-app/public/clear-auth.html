@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Authentication</title>
+</head>
+<body>
+    <h1>Clear Authentication Data</h1>
+    <button onclick="clearAuth()">Clear All Auth Data</button>
+    <div id="result"></div>
+
+    <script>
+    function clearAuth() {
+        // Clear all localStorage data
+        localStorage.clear();
+
+        // Clear all sessionStorage data
+        sessionStorage.clear();
+
+        // Clear all cookies
+        document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+
+        document.getElementById('result').innerHTML = 'All authentication data cleared. <a href="/">Go to login</a>';
+    }
+    </script>
+</body>
+</html>

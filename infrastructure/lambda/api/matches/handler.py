@@ -424,12 +424,56 @@ def trigger_learning_update(company_id: str, opportunity_id: str, outcome: str, 
         logger.warning(f"Failed to trigger learning update: {str(e)}")
 
 def get_company_id_from_token(event: Dict[str, Any]) -> str:
-    """Extract company_id from JWT token in Authorization header"""
+    """Extract company_id from Cognito context provided by API Gateway"""
     try:
-        # TODO: Implement proper JWT decoding
-        return event.get('requestContext', {}).get('authorizer', {}).get('company_id')
+        # Log the entire event for debugging
+        logger.info(f"Lambda event received: {json.dumps(event, default=str)}")
+
+        # API Gateway passes Cognito claims in requestContext.authorizer.claims
+        request_context = event.get('requestContext', {})
+        authorizer = request_context.get('authorizer', {})
+        claims = authorizer.get('claims', {})
+
+        logger.info(f"Cognito claims from API Gateway: {json.dumps(claims, default=str)}")
+
+        if claims:
+            # Use sub (Cognito user ID) as company_id since custom attributes can't be added to existing pools
+            company_id = claims.get('sub')
+
+            if company_id:
+                logger.info(f"Successfully extracted company_id from claims (using sub): {company_id}")
+                return company_id
+            else:
+                logger.warning("No sub found in claims, trying manual token parsing...")
+
+        # Fallback to manual token parsing if claims are not available
+        auth_header = event.get('headers', {}).get('Authorization', '') or event.get('headers', {}).get('authorization', '')
+        if not auth_header.startswith('Bearer '):
+            logger.error("Missing or invalid Authorization header")
+            return None
+
+        token = auth_header[7:]  # Remove 'Bearer ' prefix
+        logger.info(f"Attempting to parse token manually: {token[:50]}...")
+
+        # Import jwt here to avoid dependency issues
+        import jwt
+
+        # Decode JWT token without verification to get claims (API Gateway already verified it)
+        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        logger.info(f"Unverified token payload: {json.dumps(unverified_payload, default=str)}")
+
+        # Use sub (Cognito user ID) as company_id since custom attributes can't be added to existing pools
+        company_id = unverified_payload.get('sub')
+
+        if company_id:
+            logger.info(f"Successfully extracted company_id from token: {company_id}")
+            return company_id
+        else:
+            logger.error("No sub found in token payload")
+            return None
+
     except Exception as e:
-        logger.error(f"Error extracting company_id from token: {str(e)}")
+        logger.error(f"Error extracting company_id: {str(e)}")
         return None
 
 def decimal_default(obj):
@@ -457,6 +501,6 @@ def get_cors_headers() -> Dict[str, str]:
     return {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
         'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
     }

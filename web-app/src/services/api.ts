@@ -27,16 +27,50 @@ class APIService {
     });
 
 
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token with refresh logic
     this.api.interceptors.request.use(
       async (config) => {
-        const token = await AuthService.getAccessToken();
+        try {
+          // Check if we have a valid session first
+          if (!AuthService.hasValidSession()) {
+            console.log('❌ [API] No valid session - attempting token refresh');
 
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+            // Try to refresh the token
+            const refreshSuccess = await AuthService.refreshToken();
+            if (!refreshSuccess) {
+              console.log('❌ [API] Token refresh failed - no valid authentication');
+              throw new Error('No valid authentication');
+            }
+          }
+
+          // Get the ID token (preferred for Cognito authorization)
+          const idToken = localStorage.getItem('id_token');
+          const accessToken = localStorage.getItem('access_token');
+
+          // Use ID token if available, otherwise fall back to access token
+          const token = idToken || accessToken;
+
+          console.log('🔧 [API] Request interceptor:', {
+            hasIdToken: !!idToken,
+            hasAccessToken: !!accessToken,
+            usingToken: idToken ? 'id_token' : (accessToken ? 'access_token' : 'none'),
+            tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
+          });
+
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log('🔧 [API] Added Authorization header with', idToken ? 'ID token' : 'access token');
+          } else {
+            console.log('❌ [API] No token found after refresh attempt');
+            throw new Error('No authentication token available');
+          }
+
+          return config;
+        } catch (error) {
+          console.error('❌ [API] Request interceptor error:', error);
+          // Allow the request to continue without auth header - let the server handle the 401
+          return config;
         }
-
-        return config;
       },
       (error) => {
         return Promise.reject(error);
@@ -47,9 +81,34 @@ class APIService {
     this.api.interceptors.response.use(
       (response: AxiosResponse) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Clear all authentication data and redirect to login
-          // This forces a fresh authentication with valid Cognito tokens
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          console.log('❌ [API] 401 Unauthorized received - attempting token refresh (v2)');
+          originalRequest._retry = true;
+
+          try {
+            // Try to refresh the token
+            const refreshSuccess = await AuthService.refreshToken();
+            if (refreshSuccess) {
+              console.log('✅ [API] Token refresh successful - retrying original request');
+
+              // Get the new token and retry the original request
+              const idToken = localStorage.getItem('id_token');
+              const accessToken = localStorage.getItem('access_token');
+              const token = idToken || accessToken;
+
+              if (token) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                return this.api(originalRequest);
+              }
+            }
+          } catch (refreshError) {
+            console.error('❌ [API] Token refresh failed:', refreshError);
+          }
+
+          // If refresh failed or no new token, clear auth and redirect
+          console.log('❌ [API] Authentication failed - clearing auth and redirecting to login');
           localStorage.clear();
           window.location.href = '/';
           return Promise.reject(new Error('Authentication expired. Please log in again.'));

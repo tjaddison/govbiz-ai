@@ -62,8 +62,8 @@ export class ApiStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key'],
-        allowCredentials: true,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
       },
       binaryMediaTypes: ['multipart/form-data'],
       cloudWatchRole: true,
@@ -88,6 +88,9 @@ export class ApiStack extends cdk.Stack {
     this.createApiEndpoints(authLambda, companyLambda, documentsLambda,
                            opportunitiesLambda, matchesLambda, feedbackLambda,
                            analyticsLambda, apiAuthorizer);
+
+    // Configure Gateway Responses for CORS
+    this.configureGatewayResponses();
 
     // Create Usage Plan and API Key
     this.createApiKeyAndUsagePlan();
@@ -169,10 +172,30 @@ export class ApiStack extends cdk.Stack {
     const apiResource = this.restApi.root.addResource('api');
 
     // Company endpoints
-    const companyResource = apiResource.addResource('company');
-    const profileResource = companyResource.addResource('profile');
-    profileResource.addMethod('GET', new apigateway.LambdaIntegration(companyLambda));
-    profileResource.addMethod('PUT', new apigateway.LambdaIntegration(companyLambda));
+    const companyResource = apiResource.addResource('company', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+    const profileResource = companyResource.addResource('profile', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+    profileResource.addMethod('GET', new apigateway.LambdaIntegration(companyLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    profileResource.addMethod('PUT', new apigateway.LambdaIntegration(companyLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
 
     const scrapeResource = companyResource.addResource('scrape-website');
     scrapeResource.addMethod('POST', new apigateway.LambdaIntegration(companyLambda), {
@@ -223,8 +246,18 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Matches endpoints
-    const matchesResource = apiResource.addResource('matches');
-    matchesResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda));
+    const matchesResource = apiResource.addResource('matches', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+    matchesResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
 
     const matchIdResource = matchesResource.addResource('{id}');
     matchIdResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {
@@ -269,6 +302,38 @@ export class ApiStack extends cdk.Stack {
     trendsResource.addMethod('GET', new apigateway.LambdaIntegration(analyticsLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+  }
+
+  private configureGatewayResponses(): void {
+    // Configure 401 Unauthorized response to include CORS headers
+    this.restApi.addGatewayResponse('unauthorizedResponse', {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        'Access-Control-Allow-Methods': "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'",
+      },
+    });
+
+    // Configure 403 Forbidden response to include CORS headers
+    this.restApi.addGatewayResponse('forbiddenResponse', {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        'Access-Control-Allow-Methods': "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'",
+      },
+    });
+
+    // Configure 4XX responses to include CORS headers
+    this.restApi.addGatewayResponse('defaultClientErrorResponse', {
+      type: apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        'Access-Control-Allow-Methods': "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'",
+      },
     });
   }
 

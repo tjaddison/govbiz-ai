@@ -27,7 +27,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../../services/api';
 import { AuthService } from '../../services/auth';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContextManaged';
 import { Company, Location } from '../../types';
 
 const CompanyProfile: React.FC = () => {

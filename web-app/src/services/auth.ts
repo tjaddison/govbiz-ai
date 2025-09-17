@@ -19,7 +19,6 @@ if (typeof window !== 'undefined') {
     clientId: CLIENT_ID ? CLIENT_ID.substring(0, 5) + '...' : 'NOT SET',
     redirectUri: REDIRECT_URI
   });
-
 }
 
 export class AuthService {
@@ -68,7 +67,6 @@ export class AuthService {
       const parts = idToken.split('.');
       if (parts.length !== 3) {
         console.error('hasValidSession - invalid JWT format, expected 3 parts, got:', parts.length);
-        // this.clearTokens(); // Temporarily disabled for debugging
         return false;
       }
 
@@ -79,26 +77,23 @@ export class AuthService {
         tokenPayload = JSON.parse(decodedPayload);
       } catch (parseError) {
         console.error('hasValidSession - JWT payload parse error:', parseError);
-        // this.clearTokens(); // Temporarily disabled for debugging
         return false;
       }
 
       // Validate required claims
       if (!tokenPayload.exp || typeof tokenPayload.exp !== 'number') {
         console.error('hasValidSession - invalid or missing exp claim:', tokenPayload.exp);
-        // this.clearTokens(); // Temporarily disabled for debugging
         return false;
       }
 
       if (!tokenPayload.sub) {
         console.error('hasValidSession - missing sub claim');
-        // this.clearTokens(); // Temporarily disabled for debugging
         return false;
       }
 
       // Check expiration with buffer time (2 minutes before actual expiration)
       const currentTime = Math.floor(Date.now() / 1000);
-      const bufferTime = 2 * 60; // 2 minutes (reduced from 5 minutes)
+      const bufferTime = 2 * 60; // 2 minutes
       const effectiveExpiration = tokenPayload.exp - bufferTime;
 
       console.log('🕒 Token expiration check:', {
@@ -123,7 +118,6 @@ export class AuthService {
           this.clearTokens();
         } else {
           console.warn('⚠️ Token expires soon but is still valid, allowing access');
-          // Don't clear tokens if they're still technically valid
         }
         return currentTime < tokenPayload.exp; // Return true if not actually expired
       }
@@ -154,6 +148,7 @@ export class AuthService {
 
   // Clear all tokens from localStorage
   private static clearTokens(): void {
+    console.log('🗑️ clearTokens() called - CLEARING ALL TOKENS', new Error().stack);
     const keysToRemove = [
       'user',
       'access_token',
@@ -168,6 +163,10 @@ export class AuthService {
     ];
 
     keysToRemove.forEach(key => {
+      const existingValue = localStorage.getItem(key);
+      if (existingValue) {
+        console.log(`🗑️ Removing ${key}:`, existingValue.substring(0, 50) + '...');
+      }
       localStorage.removeItem(key);
     });
   }
@@ -404,27 +403,12 @@ export class AuthService {
     }
   }
 
-  // Generate PKCE challenge for OAuth security
-  private static generatePKCE(): { codeVerifier: string; codeChallenge: string } {
-    // Generate code verifier (43-128 characters)
-    const codeVerifier = Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15) +
-                        Math.random().toString(36).substring(2, 15);
-
-    // For simplicity, using plain challenge method (S256 would be better but requires crypto)
-    const codeChallenge = codeVerifier;
-
-    return { codeVerifier, codeChallenge };
-  }
-
   // Sign in with Google through Cognito Hosted UI
   static signInWithGoogle(): void {
     // Generate a state parameter for CSRF protection
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     localStorage.setItem('oauth_state', state);
 
-    // Try without PKCE first to isolate the issue
     const googleLoginUrl = `https://${COGNITO_DOMAIN}/login?` +
       `identity_provider=Google&` +
       `client_id=${CLIENT_ID}&` +
@@ -433,31 +417,12 @@ export class AuthService {
       `state=${encodeURIComponent(state)}&` +
       `redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
-    console.log('🔗 Initiating Google OAuth WITHOUT PKCE (testing):', googleLoginUrl);
-    console.log('🔗 OAuth parameters:', {
-      identity_provider: 'Google',
-      client_id: CLIENT_ID,
-      response_type: 'code',
-      scope: 'email+openid+profile',
-      state: state,
-      redirect_uri: REDIRECT_URI,
-      cognitoDomain: COGNITO_DOMAIN
-    });
-
-    // Log the exact URL parts for debugging
-    console.log('🔍 URL Analysis:', {
-      fullUrl: googleLoginUrl,
-      domain: COGNITO_DOMAIN,
-      expectedRedirect: REDIRECT_URI,
-      currentOrigin: window.location.origin,
-      exactMatch: REDIRECT_URI === `${window.location.origin}/auth/callback`
-    });
+    console.log('🔗 Initiating Google OAuth:', googleLoginUrl);
 
     // Clear any existing OAuth state from previous attempts
     localStorage.removeItem('auth_tokens');
     localStorage.removeItem('user_profile');
     localStorage.removeItem('last_oauth_url');
-    localStorage.removeItem('oauth_code_verifier'); // Clear PKCE verifier
 
     window.location.href = googleLoginUrl;
   }
@@ -587,18 +552,28 @@ export class AuthService {
 
       // Store tokens and user info atomically
       try {
+        console.log('💾 Storing tokens in localStorage...');
         localStorage.setItem('access_token', tokenResponse.access_token);
+        console.log('💾 Stored access_token:', tokenResponse.access_token.substring(0, 50) + '...');
         localStorage.setItem('id_token', tokenResponse.id_token);
+        console.log('💾 Stored id_token:', tokenResponse.id_token.substring(0, 50) + '...');
         if (tokenResponse.refresh_token) {
           localStorage.setItem('refresh_token', tokenResponse.refresh_token);
+          console.log('💾 Stored refresh_token:', tokenResponse.refresh_token.substring(0, 50) + '...');
         }
         localStorage.setItem('user', JSON.stringify(user));
+        console.log('💾 Stored user:', JSON.stringify(user));
 
         console.log('✅ OAuth callback completed successfully', {
           userId: user.id,
           email: user.email,
           tokenExp: tokenPayload.exp,
-          timeToExpiry: tokenPayload.exp - currentTime
+          timeToExpiry: tokenPayload.exp - currentTime,
+          tokensInStorage: {
+            hasAccessToken: !!localStorage.getItem('access_token'),
+            hasIdToken: !!localStorage.getItem('id_token'),
+            hasUser: !!localStorage.getItem('user')
+          }
         });
 
         return user;
@@ -625,8 +600,7 @@ export class AuthService {
       throw new Error('Missing Cognito configuration. Please check environment variables.');
     }
 
-    // Get PKCE code verifier if available
-    const codeVerifier = localStorage.getItem('oauth_code_verifier');
+    const tokenUrl = `https://${COGNITO_DOMAIN}/oauth2/token`;
 
     const tokenRequestParams: any = {
       grant_type: 'authorization_code',
@@ -635,24 +609,14 @@ export class AuthService {
       redirect_uri: REDIRECT_URI,
     };
 
-    // Add PKCE code verifier if present
-    if (codeVerifier) {
-      tokenRequestParams.code_verifier = codeVerifier;
-      console.log('🔐 Including PKCE code_verifier in token exchange');
-    } else {
-      console.log('🔐 No PKCE code_verifier found - using standard OAuth flow');
-    }
-
     console.log('🔄 Exchanging code for tokens:', {
       cognitoDomain: COGNITO_DOMAIN,
-      clientId: CLIENT_ID.substring(0, 5) + '...',
+      clientId: CLIENT_ID?.substring(0, 5) + '...',
       redirectUri: REDIRECT_URI,
       codeLength: code.length,
-      fullCode: code, // Add full code for debugging
-      tokenRequestParams: tokenRequestParams
+      fullRequestParams: tokenRequestParams,
+      fullTokenUrl: tokenUrl
     });
-
-    const tokenUrl = `https://${COGNITO_DOMAIN}/oauth2/token`;
 
     try {
       const response = await fetch(tokenUrl, {
@@ -717,9 +681,6 @@ export class AuthService {
         tokenType: tokenData.token_type,
         expiresIn: tokenData.expires_in
       });
-
-      // Clean up PKCE code verifier after successful exchange
-      localStorage.removeItem('oauth_code_verifier');
 
       return tokenData;
     } catch (error) {

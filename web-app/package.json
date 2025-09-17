@@ -21,6 +21,7 @@
     "@types/react-dom": "^19.1.9",
     "@types/react-router-dom": "^5.3.3",
     "amazon-cognito-identity-js": "^6.3.15",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.7.7",
     "date-fns": "^4.1.0",
     "react": "^19.1.1",

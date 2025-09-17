@@ -32,7 +32,7 @@ import {
   Settings as SettingsIcon,
   ChevronLeft as ChevronLeftIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContextManaged';
 
 const drawerWidth = 280;
 
@@ -45,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -63,7 +63,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogout = async () => {
-    await signOut();
+    await logout();
     handleMenuClose();
     navigate('/');
   };

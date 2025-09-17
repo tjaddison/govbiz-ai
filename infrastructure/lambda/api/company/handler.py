@@ -218,62 +218,53 @@ def trigger_profile_reprocessing(company_id: str):
         logger.warning(f"Failed to trigger profile reprocessing: {str(e)}")
 
 def get_company_id_from_token(event: Dict[str, Any]) -> str:
-    """Extract company_id from JWT token in Authorization header"""
+    """Extract company_id from Cognito context provided by API Gateway"""
     try:
-        auth_header = event.get('headers', {}).get('Authorization', '')
+        # Log the entire event for debugging
+        logger.info(f"Lambda event received: {json.dumps(event, default=str)}")
+
+        # API Gateway passes Cognito claims in requestContext.authorizer.claims
+        request_context = event.get('requestContext', {})
+        authorizer = request_context.get('authorizer', {})
+        claims = authorizer.get('claims', {})
+
+        logger.info(f"Cognito claims from API Gateway: {json.dumps(claims, default=str)}")
+
+        if claims:
+            # Use sub (Cognito user ID) as company_id since custom attributes can't be added to existing pools
+            company_id = claims.get('sub')
+
+            if company_id:
+                logger.info(f"Successfully extracted company_id from claims (using sub): {company_id}")
+                return company_id
+            else:
+                logger.warning("No sub found in claims, trying manual token parsing...")
+
+        # Fallback to manual token parsing if claims are not available
+        auth_header = event.get('headers', {}).get('Authorization', '') or event.get('headers', {}).get('authorization', '')
         if not auth_header.startswith('Bearer '):
             logger.error("Missing or invalid Authorization header")
             return None
 
         token = auth_header[7:]  # Remove 'Bearer ' prefix
+        logger.info(f"Attempting to parse token manually: {token[:50]}...")
 
-        # Decode JWT token without verification first to get the header
-        unverified_header = jwt.get_unverified_header(token)
-        kid = unverified_header.get('kid')
+        # Decode JWT token without verification to get claims (API Gateway already verified it)
+        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        logger.info(f"Unverified token payload: {json.dumps(unverified_payload, default=str)}")
 
-        if not kid:
-            logger.error("Missing 'kid' in JWT header")
+        # Use sub (Cognito user ID) as company_id since custom attributes can't be added to existing pools
+        company_id = unverified_payload.get('sub')
+
+        if company_id:
+            logger.info(f"Successfully extracted company_id from token: {company_id}")
+            return company_id
+        else:
+            logger.error("No company_id found in token payload")
             return None
 
-        # Get JWKS URL for Cognito User Pool
-        jwks_url = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
-
-        # Get signing key
-        jwks_client = PyJWKClient(jwks_url)
-        signing_key = jwks_client.get_signing_key_from_jwt(token)
-
-        # Decode and verify JWT
-        payload = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience=None,  # We'll verify token_use instead
-            options={"verify_aud": False}
-        )
-
-        # Verify this is an access token
-        if payload.get('token_use') != 'access':
-            logger.error(f"Invalid token_use: {payload.get('token_use')}")
-            return None
-
-        # Extract company_id from custom claims
-        company_id = payload.get('custom:company_id')
-
-        if not company_id:
-            logger.error("Missing custom:company_id in token")
-            return None
-
-        logger.info(f"Successfully extracted company_id: {company_id}")
-        return company_id
-
-    except jwt.ExpiredSignatureError:
-        logger.error("JWT token has expired")
-        return None
-    except jwt.InvalidTokenError as e:
-        logger.error(f"Invalid JWT token: {str(e)}")
-        return None
     except Exception as e:
-        logger.error(f"Error extracting company_id from token: {str(e)}")
+        logger.error(f"Error extracting company_id: {str(e)}")
         return None
 
 def decimal_default(obj):
@@ -299,6 +290,6 @@ def get_cors_headers() -> Dict[str, str]:
     return {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
         'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
     }

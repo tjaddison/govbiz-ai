@@ -2,10 +2,14 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContextManaged';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
+import Login from './pages/auth/Login';
+import SignUp from './pages/auth/SignUp';
+import ConfirmSignUp from './pages/auth/ConfirmSignUp';
+import ForgotPassword from './pages/auth/ForgotPassword';
 import AuthCallback from './pages/auth/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import CompanyProfile from './pages/company/CompanyProfile';
@@ -126,7 +130,21 @@ const App: React.FC = () => {
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
+
+              {/* Auth routes */}
+              <Route path="/auth/login" element={<Login />} />
+              <Route path="/auth/signup" element={<SignUp />} />
+              <Route path="/auth/confirm-signup" element={<ConfirmSignUp />} />
+              <Route path="/auth/forgot-password" element={<ForgotPassword />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
+
+              {/* Redirect old patterns to new auth routes */}
+              <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+              <Route path="/signup" element={<Navigate to="/auth/signup" replace />} />
+              <Route path="/register" element={<Navigate to="/auth/signup" replace />} />
+
+              {/* Redirect dashboard access to protected app */}
+              <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
 
               {/* Protected routes */}
               <Route

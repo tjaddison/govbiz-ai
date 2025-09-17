@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContextManaged';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
