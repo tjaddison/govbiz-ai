@@ -142,14 +142,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Box sx={{ p: 2 }}>
         <Box display="flex" alignItems="center" mb={1}>
           <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: theme.palette.primary.main }}>
-            {user?.name?.charAt(0) || 'U'}
+            {(user?.name?.charAt(0) || user?.email?.charAt(0) || 'U').toUpperCase()}
           </Avatar>
           <Box flexGrow={1}>
             <Typography variant="body2" fontWeight={600}>
-              {user?.name || 'User'}
+              {user?.name || user?.email?.split('@')[0] || 'User'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {user?.subscriptionTier || 'Basic'} Plan
+              {(user?.subscriptionTier || 'basic').charAt(0).toUpperCase() + (user?.subscriptionTier || 'basic').slice(1)} Plan
             </Typography>
           </Box>
         </Box>

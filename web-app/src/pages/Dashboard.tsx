@@ -109,7 +109,7 @@ const Dashboard: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
         <Box>
           <Typography variant="h4" fontWeight={600}>
-            Welcome back, {user?.name?.split(' ')[0]}!
+            Welcome back, {user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}!
           </Typography>
           <Typography variant="body1" color="text.secondary" mt={1}>
             Here's what's happening with your government contract opportunities.
