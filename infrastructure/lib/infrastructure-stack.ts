@@ -306,6 +306,18 @@ export class InfrastructureStack extends cdk.Stack {
       }
     });
 
+    this.matchesTable.addGlobalSecondaryIndex({
+      indexName: 'company-confidence-index',
+      partitionKey: {
+        name: 'company_id',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'confidence_level',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // User Profiles Table
     this.userProfilesTable = new dynamodb.Table(this, 'govbizai-user-profiles', {
       tableName: 'govbizai-user-profiles',
@@ -579,12 +591,14 @@ export class InfrastructureStack extends cdk.Stack {
         callbackUrls: [
           'http://localhost:3000/auth/callback', // For local development
           'http://localhost:3001/auth/callback', // For local development - alternate port
-          'https://app.govbizai.com/auth/callback', // Production URL placeholder
+          'https://d21w4wbdrthfbu.cloudfront.net/auth/callback', // Production CloudFront URL
+          'https://app.govbizai.com/auth/callback', // Future custom domain URL placeholder
         ],
         logoutUrls: [
           'http://localhost:3000/', // For local development - redirect to home after logout
           'http://localhost:3001/', // For local development - alternate port
-          'https://app.govbizai.com/', // Production URL placeholder - redirect to home after logout
+          'https://d21w4wbdrthfbu.cloudfront.net/', // Production CloudFront URL - redirect to home after logout
+          'https://app.govbizai.com/', // Future custom domain URL placeholder - redirect to home after logout
         ],
       },
       supportedIdentityProviders: [
