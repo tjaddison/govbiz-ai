@@ -20,8 +20,9 @@ OPPORTUNITIES_TABLE_NAME = os.environ['OPPORTUNITIES_TABLE']
 EMBEDDINGS_BUCKET = os.environ['EMBEDDINGS_BUCKET']
 TEMP_BUCKET = os.environ['TEMP_PROCESSING_BUCKET']
 
-# Initialize DynamoDB table
+# Initialize DynamoDB tables
 opportunities_table = dynamodb.Table(OPPORTUNITIES_TABLE_NAME)
+vector_index_table = dynamodb.Table('govbizai-vector-index')
 
 # Bedrock model configuration
 BEDROCK_MODEL_ID = "amazon.titan-embed-text-v2:0"
@@ -31,53 +32,73 @@ def lambda_handler(event, context):
     """
     Main handler for processing opportunities and generating embeddings.
 
-    Expected event structure:
+    Expected event structure from SQS:
     {
-        "notice_id": "string",
-        "opportunity_data": {...},  # Full opportunity data from CSV
-        "attachments": [...]  # Optional list of processed attachments
+        "Records": [
+            {
+                "body": "{\"notice_id\": \"string\", \"opportunity_data\": {...}, \"attachments\": [...]}"
+            }
+        ]
     }
     """
     try:
         logger.info(f"Processing opportunity: {json.dumps(event, default=str)}")
 
-        # Extract parameters
-        notice_id = event.get('notice_id')
-        if not notice_id:
-            raise ValueError("Missing required 'notice_id' parameter")
+        # Handle SQS event format
+        if 'Records' in event:
+            # Process each record in the SQS batch
+            results = []
+            for record in event['Records']:
+                try:
+                    # Parse the SQS message body
+                    message_body = json.loads(record['body'])
 
-        opportunity_data = event.get('opportunity_data', {})
-        if not opportunity_data:
-            raise ValueError("Missing required 'opportunity_data' parameter")
+                    # Extract parameters from message
+                    notice_id = message_body.get('notice_id')
+                    if not notice_id:
+                        raise ValueError("Missing required 'notice_id' parameter in SQS message")
 
-        attachments_info = event.get('attachments', [])
+                    opportunity_data = message_body.get('opportunity_data', {})
+                    if not opportunity_data:
+                        raise ValueError("Missing required 'opportunity_data' parameter in SQS message")
 
-        # Validate and process opportunity data
-        processed_opportunity = validate_and_process_opportunity(opportunity_data)
+                    attachments_info = message_body.get('attachments', [])
 
-        # Generate text content for embedding
-        text_content = extract_text_content(processed_opportunity)
+                    # Process this individual opportunity
+                    result = process_single_opportunity(notice_id, opportunity_data, attachments_info)
+                    results.append(result)
 
-        # Generate embeddings
-        embedding_metadata = generate_and_store_embeddings(notice_id, text_content, processed_opportunity)
+                except Exception as e:
+                    logger.error(f"Failed to process SQS record: {str(e)}")
+                    results.append({
+                        'statusCode': 500,
+                        'error': str(e),
+                        'record': record.get('messageId', 'unknown')
+                    })
 
-        # Store opportunity in DynamoDB
-        store_opportunity_in_dynamodb(processed_opportunity, embedding_metadata, attachments_info)
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'message': f'Processed {len(results)} records',
+                    'results': results
+                })
+            }
 
-        logger.info(f"Successfully processed opportunity {notice_id}")
+        else:
+            # Direct invocation format (legacy support)
+            notice_id = event.get('notice_id')
+            if not notice_id:
+                raise ValueError("Missing required 'notice_id' parameter")
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'notice_id': notice_id,
-                'title': processed_opportunity.get('title'),
-                'processing_status': 'completed',
-                'embedding_generated': bool(embedding_metadata),
-                'embeddings_stored': len(embedding_metadata.get('embedding_keys', [])),
-                'attachments_processed': len(attachments_info),
-                'dynamodb_stored': True
-            })
-        }
+            opportunity_data = event.get('opportunity_data', {})
+            if not opportunity_data:
+                raise ValueError("Missing required 'opportunity_data' parameter")
+
+            attachments_info = event.get('attachments', [])
+
+            # Process single opportunity (direct invocation)
+            result = process_single_opportunity(notice_id, opportunity_data, attachments_info)
+            return result
 
     except Exception as e:
         logger.error(f"Opportunity processing error: {str(e)}", exc_info=True)
@@ -97,6 +118,89 @@ def lambda_handler(event, context):
                 'notice_id': event.get('notice_id')
             })
         }
+
+def process_single_opportunity(notice_id: str, opportunity_data: Dict[str, Any], attachments_info: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Process a single opportunity through the complete pipeline with idempotency."""
+    try:
+        # Check if opportunity already exists (idempotency check)
+        existing_opportunity = check_opportunity_exists(notice_id)
+        if existing_opportunity:
+            logger.info(f"Opportunity {notice_id} already exists, skipping processing")
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'notice_id': notice_id,
+                    'title': existing_opportunity.get('title'),
+                    'processing_status': 'already_exists',
+                    'embedding_generated': bool(existing_opportunity.get('embedding_metadata')),
+                    'embeddings_stored': len(existing_opportunity.get('embedding_metadata', {}).get('embedding_keys', [])),
+                    'attachments_processed': existing_opportunity.get('attachment_count', 0),
+                    'dynamodb_stored': True
+                })
+            }
+
+        # Validate and process opportunity data
+        processed_opportunity = validate_and_process_opportunity(opportunity_data)
+
+        # Generate text content for embedding
+        text_content = extract_text_content(processed_opportunity)
+
+        # Generate embeddings (with idempotency checks)
+        embedding_metadata = generate_and_store_embeddings(notice_id, text_content, processed_opportunity)
+
+        # Store opportunity in DynamoDB (upsert operation)
+        store_opportunity_in_dynamodb(processed_opportunity, embedding_metadata, attachments_info)
+
+        # Update vector index (with idempotency checks)
+        if embedding_metadata:
+            update_vector_index(notice_id, processed_opportunity, embedding_metadata)
+
+        logger.info(f"Successfully processed opportunity {notice_id}")
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'notice_id': notice_id,
+                'title': processed_opportunity.get('title'),
+                'processing_status': 'completed',
+                'embedding_generated': bool(embedding_metadata),
+                'embeddings_stored': len(embedding_metadata.get('embedding_keys', [])),
+                'attachments_processed': len(attachments_info),
+                'dynamodb_stored': True
+            })
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to process opportunity {notice_id}: {str(e)}")
+
+        # Try to store error status in DynamoDB
+        try:
+            store_processing_error(notice_id, opportunity_data, str(e))
+        except Exception as db_error:
+            logger.error(f"Failed to store error status: {str(db_error)}")
+
+        return {
+            'statusCode': 500,
+            'body': json.dumps({
+                'error': 'Opportunity processing failed',
+                'message': str(e),
+                'notice_id': notice_id
+            })
+        }
+
+def check_opportunity_exists(notice_id: str) -> Optional[Dict[str, Any]]:
+    """Check if opportunity already exists in DynamoDB."""
+    try:
+        response = opportunities_table.get_item(
+            Key={'notice_id': notice_id}
+        )
+        if 'Item' in response:
+            logger.info(f"Found existing opportunity: {notice_id}")
+            return response['Item']
+        return None
+    except Exception as e:
+        logger.error(f"Error checking opportunity existence: {str(e)}")
+        return None
 
 def validate_and_process_opportunity(opportunity_data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate and normalize opportunity data."""
@@ -293,11 +397,33 @@ def generate_embedding(text: str) -> List[float]:
         raise
 
 def store_embedding_vector(notice_id: str, content_type: str, embedding: List[float], opportunity: Dict[str, Any]) -> str:
-    """Store embedding vector in S3 with metadata."""
+    """Store embedding vector in S3 with metadata and idempotency."""
     try:
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        date_prefix = datetime.utcnow().strftime('%Y-%m-%d')
-        s3_key = f"opportunities/{date_prefix}/{notice_id}/embedding_{content_type}_{timestamp}.json"
+        # Use posted_date for deterministic key generation (not current date)
+        posted_date = opportunity.get('posted_date', '')
+        if posted_date:
+            try:
+                # Parse posted_date to get consistent date format
+                parsed_date = datetime.strptime(posted_date, '%Y-%m-%d')
+                date_prefix = parsed_date.strftime('%Y-%m-%d')
+            except (ValueError, TypeError):
+                # Fallback to current date if posted_date is malformed
+                date_prefix = datetime.utcnow().strftime('%Y-%m-%d')
+        else:
+            date_prefix = datetime.utcnow().strftime('%Y-%m-%d')
+
+        # Use deterministic key for idempotency (based on posted_date, not current time)
+        s3_key = f"opportunities/{date_prefix}/{notice_id}/embedding_{content_type}.json"
+
+        # Check if embedding already exists
+        try:
+            s3_client.head_object(Bucket=EMBEDDINGS_BUCKET, Key=s3_key)
+            logger.info(f"Embedding already exists: {s3_key}")
+            return s3_key
+        except Exception as e:
+            # Embedding doesn't exist or other S3 error, proceed with creation
+            logger.debug(f"S3 head_object check failed (expected for new objects): {str(e)}")
+            pass
 
         embedding_data = {
             'notice_id': notice_id,
@@ -334,7 +460,7 @@ def store_embedding_vector(notice_id: str, content_type: str, embedding: List[fl
         raise
 
 def store_opportunity_in_dynamodb(opportunity: Dict[str, Any], embedding_metadata: Dict[str, Any], attachments_info: List[Dict[str, Any]]):
-    """Store opportunity data in DynamoDB."""
+    """Store opportunity data in DynamoDB with idempotency (upsert behavior)."""
     logger.info(f"Storing opportunity {opportunity['notice_id']} in DynamoDB")
 
     try:
@@ -351,6 +477,11 @@ def store_opportunity_in_dynamodb(opportunity: Dict[str, Any], embedding_metadat
         # Prepare DynamoDB item
         item = convert_floats(opportunity.copy())
 
+        # Add processing metadata
+        item['processing_status'] = 'completed'
+        item['processed_at'] = datetime.utcnow().isoformat()
+        item['updated_at'] = datetime.utcnow().isoformat()
+
         # Add embedding metadata
         if embedding_metadata:
             item['embedding_metadata'] = convert_floats(embedding_metadata)
@@ -366,10 +497,11 @@ def store_opportunity_in_dynamodb(opportunity: Dict[str, Any], embedding_metadat
         item['naics_code'] = opportunity.get('naics_code', '')
         item['archive_date'] = opportunity.get('archive_date', '')
 
-        # Store in DynamoDB
+        # Use put_item which acts as upsert (insert or update)
+        # This ensures idempotency - if record exists it will be updated
         opportunities_table.put_item(Item=item)
 
-        logger.info(f"Successfully stored opportunity {opportunity['notice_id']} in DynamoDB")
+        logger.info(f"Successfully stored/updated opportunity {opportunity['notice_id']} in DynamoDB")
 
     except Exception as e:
         logger.error(f"Failed to store opportunity in DynamoDB: {str(e)}")
@@ -395,3 +527,56 @@ def store_processing_error(notice_id: str, opportunity_data: Dict[str, Any], err
 
     except Exception as e:
         logger.error(f"Failed to store processing error: {str(e)}")
+
+def update_vector_index(notice_id: str, opportunity: Dict[str, Any], embedding_metadata: Dict[str, Any]):
+    """Update the vector index table with embedding information (idempotent)."""
+    try:
+        logger.info(f"Updating vector index for opportunity {notice_id}")
+
+        for embedding_info in embedding_metadata.get('embedding_keys', []):
+            # Use the actual table schema: entity_type (HASH) + entity_id (RANGE)
+            entity_type = 'opportunity'
+            entity_id = f"{notice_id}_{embedding_info['content_type']}"
+
+            # Check if vector index entry already exists using the correct key schema
+            try:
+                existing_response = vector_index_table.get_item(
+                    Key={
+                        'entity_type': entity_type,
+                        'entity_id': entity_id
+                    }
+                )
+                if 'Item' in existing_response:
+                    logger.info(f"Vector index entry already exists: {entity_type}/{entity_id}")
+                    continue
+            except Exception as e:
+                logger.warning(f"Error checking existing vector index entry: {str(e)}")
+
+            item = {
+                'entity_type': entity_type,
+                'entity_id': entity_id,
+                'notice_id': notice_id,
+                's3_uri': f"s3://{EMBEDDINGS_BUCKET}/{embedding_info['s3_key']}",
+                'content_type': embedding_info['content_type'],
+                'created_at': embedding_metadata['generated_at'],
+                'updated_at': datetime.utcnow().isoformat(),
+                'total_tokens': embedding_info['text_length'],
+                'embedding_count': 1,
+                'metadata': {
+                    'title': opportunity.get('title'),
+                    'agency': opportunity.get('department'),
+                    'naics_code': opportunity.get('naics_code'),
+                    'set_aside': opportunity.get('set_aside'),
+                    'posted_date': opportunity.get('posted_date'),
+                    'response_deadline': opportunity.get('response_deadline'),
+                    'archive_date': opportunity.get('archive_date')
+                }
+            }
+
+            vector_index_table.put_item(Item=item)
+            logger.info(f"Updated vector index for {notice_id} - {embedding_info['content_type']}")
+
+    except Exception as e:
+        logger.error(f"Failed to update vector index for {notice_id}: {str(e)}")
+        # Don't fail the entire processing if vector index update fails
+        pass

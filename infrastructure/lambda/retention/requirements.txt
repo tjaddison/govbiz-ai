@@ -1,0 +1,2 @@
+# No external dependencies currently needed for retention policy
+# All required libraries are available in the Lambda Python runtime

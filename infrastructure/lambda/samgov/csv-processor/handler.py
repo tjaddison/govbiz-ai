@@ -31,18 +31,33 @@ def lambda_handler(event, context):
     try:
         logger.info("Starting SAM.gov CSV processing")
 
-        # Calculate yesterday's date for filtering
-        yesterday = (datetime.utcnow() - timedelta(days=1)).strftime('%Y-%m-%d')
-        logger.info(f"Processing opportunities posted on: {yesterday}")
+        # Calculate target date for filtering - allow override from event
+        if event.get('target_date'):
+            target_date = event['target_date']
+            logger.info(f"Using provided target date: {target_date}")
+        else:
+            # Calculate date 2 days before current date for filtering
+            today = datetime.utcnow().date()
+            days_back = 2
+            target_date_obj = today - timedelta(days=days_back)
+
+            # Skip weekends - if target date was Saturday or Sunday, go to Friday
+            while target_date_obj.weekday() >= 5:  # 5=Saturday, 6=Sunday
+                days_back += 1
+                target_date_obj = today - timedelta(days=days_back)
+
+            target_date = target_date_obj.strftime('%Y-%m-%d')
+
+        logger.info(f"Processing opportunities posted on: {target_date}")
 
         # Download CSV file
         csv_content = download_csv_file()
 
         # Parse and filter CSV content
-        filtered_opportunities = parse_and_filter_csv(csv_content, yesterday)
+        filtered_opportunities = parse_and_filter_csv(csv_content, target_date)
 
         # Store filtered data in S3
-        filtered_file_key = store_filtered_data(filtered_opportunities, yesterday)
+        filtered_file_key = store_filtered_data(filtered_opportunities, target_date)
 
         # Queue opportunities for processing
         queued_count = queue_opportunities_for_processing(filtered_opportunities)
@@ -55,7 +70,7 @@ def lambda_handler(event, context):
                 'message': 'CSV processing completed successfully',
                 'opportunities_found': len(filtered_opportunities),
                 'opportunities_queued': queued_count,
-                'processed_date': yesterday,
+                'processed_date': target_date,
                 'filtered_file_location': f"s3://{TEMP_BUCKET}/{filtered_file_key}",
                 'opportunities': [{'notice_id': opp['NoticeId'], 'title': opp['Title']} for opp in filtered_opportunities[:10]]  # First 10 for visibility
             })

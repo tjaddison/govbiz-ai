@@ -1500,7 +1500,7 @@ export class InfrastructureStack extends cdk.Stack {
     const samgovFunctionProps = {
       runtime: lambda.Runtime.PYTHON_3_11,
       timeout: cdk.Duration.minutes(15),
-      memorySize: 1024,
+      memorySize: 3008, // Maximum memory for large CSV processing
       environment: {
         RAW_DOCUMENTS_BUCKET: this.rawDocumentsBucket.bucketName,
         PROCESSED_DOCUMENTS_BUCKET: this.processedDocumentsBucket.bucketName,
@@ -1509,14 +1509,22 @@ export class InfrastructureStack extends cdk.Stack {
         OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
         PROCESSING_QUEUE_URL: opportunityProcessingQueue.queueUrl,
       },
-      layers: [samgovLayer],
       // VPC removed for cost optimization
+      // Note: Dependencies will be bundled automatically from requirements.txt
     };
 
     // 1. CSV Download and Processing Function
     const csvProcessorFunction = new lambda.Function(this, 'govbizai-csv-processor', {
       functionName: 'govbizai-csv-processor',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/csv-processor')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/csv-processor'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
       handler: 'handler.lambda_handler',
       description: 'Download and process SAM.gov CSV files with filtering',
       ...samgovFunctionProps,
@@ -1525,7 +1533,15 @@ export class InfrastructureStack extends cdk.Stack {
     // 2. SAM.gov API Client Function
     const samgovApiClientFunction = new lambda.Function(this, 'govbizai-samgov-api-client', {
       functionName: 'govbizai-samgov-api-client',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/api-client')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/samgov/api-client'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
       handler: 'handler.lambda_handler',
       description: 'SAM.gov API client with retry logic and rate limiting',
       ...samgovFunctionProps,
