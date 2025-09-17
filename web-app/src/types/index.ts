@@ -14,6 +14,7 @@ export interface Company {
   company_name: string;
   duns_number: string;
   cage_code: string;
+  uei: string;
   website_url: string;
   naics_codes: string[];
   certifications: string[];
@@ -28,6 +29,14 @@ export interface Company {
   updated_at: string;
   is_active: boolean;
   version: number;
+  website_scraping_status?: string;
+  website_scraping_message?: string;
+  website_scraped_at?: string;
+  embedding_metadata?: {
+    embeddings_generated: number;
+    embedding_types: string[];
+    last_embedded_at: string;
+  };
 }
 
 export interface Location {
@@ -207,4 +216,26 @@ export interface TableColumn {
   align?: 'left' | 'right' | 'center';
   format?: (value: any) => string;
   sortable?: boolean;
+}
+
+export interface TeamMember {
+  member_id: string;
+  tenant_id: string;
+  company_id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  title: string;
+  security_clearance?: string;
+  years_experience: number;
+  skills: string[];
+  certifications: string[];
+  education: string;
+  resume_document_id?: string;
+  hourly_rate?: number;
+  availability: 'full-time' | 'part-time' | 'contract' | 'as-needed';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }

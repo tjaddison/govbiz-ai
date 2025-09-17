@@ -1,1 +1,1 @@
-{"statusCode": 500, "body": "{\"error\": \"Opportunity processing failed\", \"message\": \"Missing required 'notice_id' parameter\", \"notice_id\": null}"}
+{"statusCode": 200, "body": "Profile embedding completed"}

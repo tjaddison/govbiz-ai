@@ -17,6 +17,8 @@ import {
   DialogContent,
   DialogActions,
   IconButton,
+  LinearProgress,
+  Paper,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -26,12 +28,11 @@ import {
 } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../../services/api';
-import { AuthService } from '../../services/auth';
 import { useAuth } from '../../contexts/AuthContextManaged';
 import { Company, Location } from '../../types';
 
 const CompanyProfile: React.FC = () => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [showWebscrapeDialog, setShowWebscrapeDialog] = useState(false);
@@ -46,7 +47,7 @@ const CompanyProfile: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: apiService.updateCompanyProfile,
+    mutationFn: (company: Partial<Company>) => apiService.updateCompanyProfile(company),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-profile'] });
       setIsEditing(false);
@@ -58,7 +59,7 @@ const CompanyProfile: React.FC = () => {
   });
 
   const scrapeMutation = useMutation({
-    mutationFn: apiService.scrapeCompanyWebsite,
+    mutationFn: (websiteUrl: string) => apiService.scrapeCompanyWebsite(websiteUrl),
     onSuccess: () => {
       setShowWebscrapeDialog(false);
       setWebsiteUrl('');
@@ -146,6 +147,56 @@ const CompanyProfile: React.FC = () => {
     'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
   ];
 
+  const calculateProfileCompleteness = (companyData: Partial<Company>): { percentage: number; missing: string[] } => {
+    const requiredFields = [
+      { key: 'company_name', label: 'Company Name' },
+      { key: 'primary_contact_name', label: 'Contact Name' },
+      { key: 'primary_contact_email', label: 'Contact Email' },
+      { key: 'naics_codes', label: 'NAICS Codes', check: (val: any) => Array.isArray(val) && val.length > 0 },
+      { key: 'capability_statement', label: 'Capability Statement' },
+      { key: 'locations', label: 'Business Locations', check: (val: any) => Array.isArray(val) && val.length > 0 },
+    ];
+
+    const optionalFields = [
+      { key: 'duns_number', label: 'DUNS Number' },
+      { key: 'cage_code', label: 'CAGE Code' },
+      { key: 'uei', label: 'UEI' },
+      { key: 'website_url', label: 'Website URL' },
+      { key: 'revenue_range', label: 'Revenue Range' },
+      { key: 'employee_count', label: 'Employee Count' },
+      { key: 'certifications', label: 'Certifications', check: (val: any) => Array.isArray(val) && val.length > 0 },
+      { key: 'primary_contact_phone', label: 'Contact Phone' },
+    ];
+
+    const allFields = [...requiredFields, ...optionalFields];
+    const missing: string[] = [];
+    let completed = 0;
+
+    allFields.forEach(field => {
+      const value = companyData[field.key as keyof Company];
+      const isComplete = field.check ? field.check(value) : Boolean(value && value !== '');
+
+      if (isComplete) {
+        completed++;
+      } else {
+        missing.push(field.label);
+      }
+    });
+
+    return {
+      percentage: Math.round((completed / allFields.length) * 100),
+      missing
+    };
+  };
+
+  const profileCompleteness = calculateProfileCompleteness(formData);
+
+  const getCompletenessColor = (percentage: number) => {
+    if (percentage >= 80) return 'success';
+    if (percentage >= 60) return 'warning';
+    return 'error';
+  };
+
 
   if (authLoading || isLoading) {
     return (
@@ -216,6 +267,39 @@ const CompanyProfile: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Profile Completeness Indicator */}
+      <Paper sx={{ p: 3, mb: 3, bgcolor: 'background.paper' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" fontWeight={600}>
+            Profile Completeness
+          </Typography>
+          <Typography variant="h6" color={`${getCompletenessColor(profileCompleteness.percentage)}.main`}>
+            {profileCompleteness.percentage}%
+          </Typography>
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={profileCompleteness.percentage}
+          color={getCompletenessColor(profileCompleteness.percentage) as any}
+          sx={{ height: 8, borderRadius: 4, mb: 2 }}
+        />
+        {profileCompleteness.missing.length > 0 && (
+          <Box>
+            <Typography variant="body2" color="text.secondary" mb={1}>
+              Missing information:
+            </Typography>
+            <Box display="flex" flexWrap="wrap" gap={1}>
+              {profileCompleteness.missing.slice(0, 6).map((item) => (
+                <Chip key={item} label={item} size="small" variant="outlined" />
+              ))}
+              {profileCompleteness.missing.length > 6 && (
+                <Chip label={`+${profileCompleteness.missing.length - 6} more`} size="small" variant="outlined" />
+              )}
+            </Box>
+          </Box>
+        )}
+      </Paper>
+
       <Grid container spacing={3}>
         {/* Basic Information */}
         <Grid item xs={12} md={6}>
@@ -252,6 +336,16 @@ const CompanyProfile: React.FC = () => {
                     value={formData.cage_code || ''}
                     onChange={(e) => handleFieldChange('cage_code', e.target.value)}
                     disabled={!isEditing}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="UEI (Unique Entity Identifier)"
+                    value={formData.uei || ''}
+                    onChange={(e) => handleFieldChange('uei', e.target.value)}
+                    disabled={!isEditing}
+                    helperText="12-character alphanumeric identifier required for federal contracting"
                   />
                 </Grid>
                 <Grid item xs={12}>

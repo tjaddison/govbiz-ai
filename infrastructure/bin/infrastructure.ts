@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { InfrastructureStack } from '../lib/infrastructure-stack';
 import { ApiStack } from '../lib/api-stack';
+import { ProcessingStack } from '../lib/processing-stack';
 import { WebAppStack } from '../lib/web-app-stack';
 
 const app = new cdk.App();
@@ -45,6 +46,23 @@ new ApiStack(app, 'GovBizAIApiStack', {
   documentsTable: infraStack.userProfilesTable, // Using userProfiles table for document metadata
   documentsBucket: infraStack.rawDocumentsBucket,
   embeddingsBucket: infraStack.embeddingsBucket,
+});
+
+// Deploy document processing stack
+new ProcessingStack(app, 'GovBizAIProcessingStack', {
+  env: {
+    account: account,
+    region: region,
+  },
+  description: 'GovBizAI Processing - Document processing, embedding generation, and web scraping',
+  tags: {
+    Project: 'govbizai',
+    Environment: 'dev',
+    Phase: 'document-processing',
+  },
+  documentsBucket: infraStack.rawDocumentsBucket,
+  embeddingsBucket: infraStack.embeddingsBucket,
+  companiesTable: infraStack.companiesTable,
 });
 
 // Deploy web application

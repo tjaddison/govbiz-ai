@@ -321,8 +321,46 @@ def handle_delete_document(company_id: str, document_id: str) -> Dict[str, Any]:
 def trigger_document_processing(company_id: str, document_id: str):
     """Trigger document processing pipeline"""
     try:
-        # TODO: Send message to document processing queue
-        logger.info(f"Document processing triggered for company: {company_id}, document: {document_id}")
+        # Get the document details to send to processing queue
+        companies_table = dynamodb.Table(COMPANIES_TABLE_NAME)
+        response = companies_table.get_item(Key={'company_id': company_id})
+
+        if 'Item' not in response:
+            logger.error(f"Company not found for document processing: {company_id}")
+            return
+
+        documents = response['Item'].get('documents', [])
+        document = next((doc for doc in documents if doc.get('document_id') == document_id), None)
+
+        if not document:
+            logger.error(f"Document not found: {document_id}")
+            return
+
+        # Send message to processing queue if available
+        processing_queue_url = os.environ.get('PROCESSING_QUEUE_URL')
+        if processing_queue_url:
+            import boto3
+            sqs = boto3.client('sqs')
+
+            message_body = {
+                'company_id': company_id,
+                'document_id': document_id,
+                'bucket': document.get('s3_key', '').split('/')[0] if document.get('s3_key') else PROCESSED_DOCUMENTS_BUCKET,
+                'key': document.get('s3_key', ''),
+                'filename': document.get('filename', ''),
+                'category': document.get('category', 'other'),
+                'content_type': document.get('content_type', ''),
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+
+            sqs.send_message(
+                QueueUrl=processing_queue_url,
+                MessageBody=json.dumps(message_body)
+            )
+
+            logger.info(f"Document processing message sent to queue for company: {company_id}, document: {document_id}")
+        else:
+            logger.info(f"Document processing triggered for company: {company_id}, document: {document_id}")
     except Exception as e:
         logger.warning(f"Failed to trigger document processing: {str(e)}")
 

@@ -37,6 +37,7 @@ const DocumentManagement: React.FC = () => {
   const [documentType, setDocumentType] = useState<DocumentType>('capability_statement');
   const [tags, setTags] = useState<string>('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
+  const [uploadProgress, setUploadProgress] = useState<{ [fileName: string]: number }>({});
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ['documents'],
@@ -45,22 +46,52 @@ const DocumentManagement: React.FC = () => {
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, type, tagList }: { file: File; type: DocumentType; tagList: string[] }) => {
-      return apiService.uploadDocument(file, type, tagList);
+      try {
+        // Reset progress
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+
+        // Get presigned URL
+        setUploadProgress(prev => ({ ...prev, [file.name]: 10 }));
+        const { uploadUrl, key, document_id } = await apiService.getPresignedUploadUrl(file.name, file.type, type);
+
+        // Upload to S3 with progress
+        setUploadProgress(prev => ({ ...prev, [file.name]: 30 }));
+        await apiService.uploadToS3(uploadUrl, file);
+
+        // Confirm upload
+        setUploadProgress(prev => ({ ...prev, [file.name]: 80 }));
+        const result = await apiService.confirmDocumentUpload(document_id, tagList);
+
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+        return result;
+      } catch (error) {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      setSnackbar({ open: true, message: 'Document uploaded successfully!', severity: 'success' });
-      setUploadDialog(false);
-      setUploadFiles([]);
-      setTags('');
+      setSnackbar({ open: true, message: `${variables.file.name} uploaded successfully!`, severity: 'success' });
+      // Remove completed file from progress
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[variables.file.name];
+        return newProgress;
+      });
     },
-    onError: (error: any) => {
-      setSnackbar({ open: true, message: error.message || 'Upload failed', severity: 'error' });
+    onError: (error: any, variables) => {
+      setSnackbar({ open: true, message: `${variables.file.name}: ${error.message || 'Upload failed'}`, severity: 'error' });
+      // Reset progress on error
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[variables.file.name];
+        return newProgress;
+      });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: apiService.deleteDocument,
+    mutationFn: (documentId: string) => apiService.deleteDocument(documentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       setSnackbar({ open: true, message: 'Document deleted successfully!', severity: 'success' });
@@ -113,13 +144,21 @@ const DocumentManagement: React.FC = () => {
 
     const tagList = tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 
-    uploadFiles.forEach(file => {
-      uploadMutation.mutate({
-        file,
-        type: documentType,
-        tagList,
-      });
+    // Upload files sequentially to avoid overwhelming the system
+    uploadFiles.forEach((file, index) => {
+      setTimeout(() => {
+        uploadMutation.mutate({
+          file,
+          type: documentType,
+          tagList,
+        });
+      }, index * 500); // Stagger uploads by 500ms
     });
+
+    // Close dialog after starting uploads
+    setUploadDialog(false);
+    setUploadFiles([]);
+    setTags('');
   };
 
   const formatFileSize = (bytes: number) => {
@@ -194,10 +233,22 @@ const DocumentManagement: React.FC = () => {
                       {doc.document_name}
                     </Typography>
                     <Box display="flex" gap={0.5}>
-                      <IconButton size="small" disabled>
-                        <ViewIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" disabled>
+                      <IconButton
+                        size="small"
+                        onClick={async () => {
+                          try {
+                            const downloadUrl = await apiService.getDocumentDownloadUrl(doc.document_id);
+                            window.open(downloadUrl, '_blank');
+                          } catch (error) {
+                            setSnackbar({
+                              open: true,
+                              message: 'Failed to download document',
+                              severity: 'error'
+                            });
+                          }
+                        }}
+                        title="Download"
+                      >
                         <DownloadIcon fontSize="small" />
                       </IconButton>
                       <IconButton
@@ -205,6 +256,7 @@ const DocumentManagement: React.FC = () => {
                         color="error"
                         onClick={() => deleteMutation.mutate(doc.document_id)}
                         disabled={deleteMutation.isPending}
+                        title="Delete"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -299,19 +351,29 @@ const DocumentManagement: React.FC = () => {
                   Files to upload:
                 </Typography>
                 {uploadFiles.map((file, index) => (
-                  <Box key={index} display="flex" alignItems="center" mb={1}>
-                    <Typography variant="body2" flexGrow={1}>
-                      {file.name} ({formatFileSize(file.size)})
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        const newFiles = uploadFiles.filter((_, i) => i !== index);
-                        setUploadFiles(newFiles);
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <Box key={index} mb={1}>
+                    <Box display="flex" alignItems="center" mb={0.5}>
+                      <Typography variant="body2" flexGrow={1}>
+                        {file.name} ({formatFileSize(file.size)})
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const newFiles = uploadFiles.filter((_, i) => i !== index);
+                          setUploadFiles(newFiles);
+                        }}
+                        disabled={uploadProgress[file.name] > 0}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    {uploadProgress[file.name] > 0 && (
+                      <LinearProgress
+                        variant="determinate"
+                        value={uploadProgress[file.name]}
+                        sx={{ height: 4, borderRadius: 2 }}
+                      />
+                    )}
                   </Box>
                 ))}
               </Box>

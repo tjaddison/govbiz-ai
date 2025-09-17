@@ -1,5 +1,4 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { AuthService } from './auth';
 import {
   Company,
   Document,
@@ -10,7 +9,8 @@ import {
   PaginatedResponse,
   FilterOptions,
   SortOptions,
-  UserFeedback
+  UserFeedback,
+  TeamMember
 } from '../types';
 
 class APIService {
@@ -31,16 +31,11 @@ class APIService {
     this.api.interceptors.request.use(
       async (config) => {
         try {
-          // Check if we have a valid session first
-          if (!AuthService.hasValidSession()) {
-            console.log('❌ [API] No valid session - attempting token refresh');
-
-            // Try to refresh the token
-            const refreshSuccess = await AuthService.refreshToken();
-            if (!refreshSuccess) {
-              console.log('❌ [API] Token refresh failed - no valid authentication');
-              throw new Error('No valid authentication');
-            }
+          // Check if we have tokens
+          const hasTokens = localStorage.getItem('id_token') || localStorage.getItem('access_token');
+          if (!hasTokens) {
+            console.log('❌ [API] No tokens found - skipping authentication');
+            throw new Error('No valid authentication');
           }
 
           // Get the ID token (preferred for Cognito authorization)
@@ -88,21 +83,9 @@ class APIService {
           originalRequest._retry = true;
 
           try {
-            // Try to refresh the token
-            const refreshSuccess = await AuthService.refreshToken();
-            if (refreshSuccess) {
-              console.log('✅ [API] Token refresh successful - retrying original request');
-
-              // Get the new token and retry the original request
-              const idToken = localStorage.getItem('id_token');
-              const accessToken = localStorage.getItem('access_token');
-              const token = idToken || accessToken;
-
-              if (token) {
-                originalRequest.headers.Authorization = `Bearer ${token}`;
-                return this.api(originalRequest);
-              }
-            }
+            // For now, just clear tokens and redirect to login
+            console.log('❌ [API] Token refresh not implemented - clearing tokens');
+            localStorage.clear();
           } catch (refreshError) {
             console.error('❌ [API] Token refresh failed:', refreshError);
           }
@@ -142,6 +125,7 @@ class APIService {
           company_name: 'Demo Company Inc.',
           duns_number: '123456789',
           cage_code: 'DEMO1',
+          uei: 'ABC123DEF456',
           website_url: 'https://demo-company.com',
           naics_codes: ['541511', '541512'],
           certifications: ['8(a)', 'WOSB'],
@@ -188,7 +172,7 @@ class APIService {
 
   // Document Management API
   async getDocuments(): Promise<Document[]> {
-    const response = await this.api.get<APIResponse<Document[]>>('/api/company/documents');
+    const response = await this.api.get<APIResponse<Document[]>>('/api/documents');
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to get documents');
     }
@@ -196,40 +180,34 @@ class APIService {
   }
 
   async uploadDocument(file: File, documentType: string, tags: string[]): Promise<Document> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('document_type', documentType);
-    formData.append('tags', JSON.stringify(tags));
+    try {
+      // Step 1: Get presigned URL
+      const { uploadUrl, key, document_id } = await this.getPresignedUploadUrl(file.name, file.type, documentType);
 
-    const response = await this.api.post<APIResponse<Document>>(
-      '/api/company/documents',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
+      // Step 2: Upload to S3
+      await this.uploadToS3(uploadUrl, file);
 
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to upload document');
+      // Step 3: Confirm upload and trigger processing
+      return await this.confirmDocumentUpload(document_id, tags);
+    } catch (error) {
+      throw new Error(`Document upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    return response.data.data;
   }
 
   async deleteDocument(documentId: string): Promise<void> {
-    const response = await this.api.delete<APIResponse<void>>(`/api/company/documents/${documentId}`);
+    const response = await this.api.delete<APIResponse<void>>(`/api/documents/${documentId}`);
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to delete document');
     }
   }
 
-  async getPresignedUploadUrl(fileName: string, fileType: string): Promise<{ uploadUrl: string; key: string }> {
-    const response = await this.api.post<APIResponse<{ uploadUrl: string; key: string }>>(
-      '/api/company/documents/presigned-url',
+  async getPresignedUploadUrl(fileName: string, fileType: string, documentType: string): Promise<{ uploadUrl: string; key: string; document_id: string }> {
+    const response = await this.api.post<APIResponse<{ uploadUrl: string; key: string; document_id: string }>>(
+      '/api/documents/upload-url',
       {
-        file_name: fileName,
+        filename: fileName,
         file_type: fileType,
+        document_type: documentType,
       }
     );
 
@@ -237,6 +215,42 @@ class APIService {
       throw new Error(response.data.error || 'Failed to get presigned URL');
     }
     return response.data.data;
+  }
+
+  async uploadToS3(uploadUrl: string, file: File): Promise<void> {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload file to S3');
+    }
+  }
+
+  async confirmDocumentUpload(documentId: string, tags: string[]): Promise<Document> {
+    const response = await this.api.post<APIResponse<Document>>(
+      `/api/documents/${documentId}/confirm`,
+      {
+        tags: tags,
+      }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to confirm document upload');
+    }
+    return response.data.data;
+  }
+
+  async getDocumentDownloadUrl(documentId: string): Promise<string> {
+    const response = await this.api.get<APIResponse<{ downloadUrl: string }>>(`/api/documents/${documentId}/download-url`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get download URL');
+    }
+    return response.data.data.downloadUrl;
   }
 
   // Opportunities API
@@ -361,6 +375,50 @@ class APIService {
       throw new Error(response.data.error || 'Failed to get match stats');
     }
     return response.data.data;
+  }
+
+  // Team Management API
+  async getTeamMembers(): Promise<TeamMember[]> {
+    const response = await this.api.get<APIResponse<TeamMember[]>>('/api/team/members');
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get team members');
+    }
+    return response.data.data;
+  }
+
+  async createTeamMember(memberData: Omit<TeamMember, 'member_id' | 'tenant_id' | 'company_id' | 'created_at' | 'updated_at'>): Promise<TeamMember> {
+    const response = await this.api.post<APIResponse<TeamMember>>('/api/team/members', memberData);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create team member');
+    }
+    return response.data.data;
+  }
+
+  async updateTeamMember(memberId: string, memberData: Partial<TeamMember>): Promise<TeamMember> {
+    const response = await this.api.put<APIResponse<TeamMember>>(`/api/team/members/${memberId}`, memberData);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update team member');
+    }
+    return response.data.data;
+  }
+
+  async deleteTeamMember(memberId: string): Promise<void> {
+    const response = await this.api.delete<APIResponse<void>>(`/api/team/members/${memberId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete team member');
+    }
+  }
+
+  async uploadTeamMemberResume(memberId: string, file: File): Promise<TeamMember> {
+    try {
+      // Upload document using existing document upload flow
+      const document = await this.uploadDocument(file, 'resume', [`team-member:${memberId}`, 'resume']);
+
+      // Update team member with resume document ID
+      return await this.updateTeamMember(memberId, { resume_document_id: document.document_id });
+    } catch (error) {
+      throw new Error(`Resume upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // WebSocket for real-time updates

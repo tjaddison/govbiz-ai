@@ -69,12 +69,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Company Profile', icon: <BusinessIcon />, path: '/company/profile' },
-    { text: 'Documents', icon: <DocumentIcon />, path: '/company/documents' },
-    { text: 'Opportunities', icon: <OpportunityIcon />, path: '/opportunities' },
-    { text: 'Matches', icon: <MatchIcon />, path: '/matches' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/app/dashboard' },
+    { text: 'Company Profile', icon: <BusinessIcon />, path: '/app/company/profile' },
+    { text: 'Documents', icon: <DocumentIcon />, path: '/app/company/documents' },
+    { text: 'Opportunities', icon: <OpportunityIcon />, path: '/app/opportunities' },
+    { text: 'Matches', icon: <MatchIcon />, path: '/app/matches' },
+    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/app/analytics' },
   ];
 
   const handleNavigation = (path: string) => {
@@ -207,7 +207,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
-            <MenuItem onClick={() => { handleMenuClose(); navigate('/company/profile'); }}>
+            <MenuItem onClick={() => { handleMenuClose(); navigate('/app/company/profile'); }}>
               <ListItemIcon>
                 <SettingsIcon fontSize="small" />
               </ListItemIcon>

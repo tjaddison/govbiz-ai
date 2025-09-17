@@ -118,23 +118,25 @@ def handle_update_company_profile(company_id: str, profile_data: Dict[str, Any])
                 return create_error_response(400, 'MISSING_FIELD', f'{field} is required')
 
         # Build update expression
-        update_expression = "SET updated_at = :updated_at"
+        update_expression = "SET #updated_at = :updated_at"
         expression_attribute_values = {':updated_at': datetime.utcnow().isoformat() + 'Z'}
-        expression_attribute_names = {}
+        expression_attribute_names = {'#updated_at': 'updated_at'}
 
         for key, value in profile_data.items():
-            if key not in ['company_id', 'created_at']:  # Don't update these fields
-                attr_key = f":{key.replace('-', '_')}"
-                name_key = f"#{key.replace('-', '_')}"
+            if key not in ['company_id', 'created_at', 'updated_at']:  # Don't update these fields
+                # Create unique attribute names to avoid conflicts
+                safe_key = key.replace('-', '_').replace('.', '_')
+                attr_key = f":val_{safe_key}"
+                name_key = f"#attr_{safe_key}"
                 update_expression += f", {name_key} = {attr_key}"
                 expression_attribute_values[attr_key] = value
                 expression_attribute_names[name_key] = key
 
         # Check if profile exists, if not create it
-        try:
-            companies_table.get_item(Key={'company_id': company_id})['Item']
-        except KeyError:
-            # Profile doesn't exist, set created_at
+        response = companies_table.get_item(Key={'company_id': company_id})
+
+        if 'Item' not in response:
+            # Profile doesn't exist, create it
             profile_data['company_id'] = company_id
             profile_data['created_at'] = datetime.utcnow().isoformat() + 'Z'
             profile_data['updated_at'] = datetime.utcnow().isoformat() + 'Z'
@@ -188,8 +190,36 @@ def handle_scrape_website(company_id: str, body: Dict[str, Any]) -> Dict[str, An
         if not website_url:
             return create_error_response(400, 'MISSING_URL', 'website_url is required')
 
-        # TODO: Trigger website scraping Lambda function
-        # For now, return a placeholder response
+        # Send message to web scraping queue if available
+        scraping_queue_url = os.environ.get('WEB_SCRAPING_QUEUE_URL')
+        if scraping_queue_url:
+            import boto3
+            sqs = boto3.client('sqs')
+
+            message_body = {
+                'company_id': company_id,
+                'website_url': website_url,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+
+            sqs.send_message(
+                QueueUrl=scraping_queue_url,
+                MessageBody=json.dumps(message_body)
+            )
+
+            # Update company profile with scraping initiation
+            companies_table = dynamodb.Table(COMPANIES_TABLE_NAME)
+            companies_table.update_item(
+                Key={'company_id': company_id},
+                UpdateExpression="SET website_scraping_status = :status, website_scraping_initiated_at = :initiated_at, updated_at = :updated_at",
+                ExpressionAttributeValues={
+                    ':status': 'initiated',
+                    ':initiated_at': datetime.utcnow().isoformat() + 'Z',
+                    ':updated_at': datetime.utcnow().isoformat() + 'Z'
+                }
+            )
+
+            logger.info(f"Website scraping message sent to queue for company: {company_id}, URL: {website_url}")
 
         return {
             'statusCode': 202,
@@ -212,8 +242,26 @@ def handle_scrape_website(company_id: str, body: Dict[str, Any]) -> Dict[str, An
 def trigger_profile_reprocessing(company_id: str):
     """Trigger company profile re-processing for embeddings"""
     try:
-        # TODO: Send message to SQS queue to trigger re-processing
-        logger.info(f"Profile reprocessing triggered for company: {company_id}")
+        # Send message to profile embedding queue if available
+        embedding_queue_url = os.environ.get('PROFILE_EMBEDDING_QUEUE_URL')
+        if embedding_queue_url:
+            import boto3
+            sqs = boto3.client('sqs')
+
+            message_body = {
+                'action': 'reembed_profile',
+                'company_id': company_id,
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+
+            sqs.send_message(
+                QueueUrl=embedding_queue_url,
+                MessageBody=json.dumps(message_body)
+            )
+
+            logger.info(f"Profile re-embedding message sent to queue for company: {company_id}")
+        else:
+            logger.info(f"Profile reprocessing triggered for company: {company_id}")
     except Exception as e:
         logger.warning(f"Failed to trigger profile reprocessing: {str(e)}")
 
