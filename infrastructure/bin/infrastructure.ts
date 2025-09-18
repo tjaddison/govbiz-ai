@@ -66,6 +66,7 @@ new ApiStack(app, 'GovBizAIApiStack', {
   kmsKey: infraStack.kmsKey,
   profileEmbeddingQueueUrl: processingStack.profileEmbeddingQueue.queueUrl,
   webScrapingQueueUrl: processingStack.webScrapingQueue.queueUrl,
+  documentProcessingQueueUrl: processingStack.documentProcessingQueue.queueUrl,
 });
 
 // Deploy web application

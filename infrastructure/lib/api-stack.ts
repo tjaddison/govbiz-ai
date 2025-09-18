@@ -24,6 +24,7 @@ export interface ApiStackProps extends cdk.StackProps {
   kmsKey: kms.Key;
   profileEmbeddingQueueUrl?: string;
   webScrapingQueueUrl?: string;
+  documentProcessingQueueUrl?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -133,6 +134,7 @@ export class ApiStack extends cdk.Stack {
         TENANTS_TABLE_NAME: props.companiesTable.tableName, // Using companies table for tenant data
         PROFILE_EMBEDDING_QUEUE_URL: props.profileEmbeddingQueueUrl || '',
         WEB_SCRAPING_QUEUE_URL: props.webScrapingQueueUrl || '',
+        PROCESSING_QUEUE_URL: props.documentProcessingQueueUrl || '',
       },
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
@@ -158,6 +160,20 @@ export class ApiStack extends cdk.Stack {
         'cognito-idp:GlobalSignOut',
       ],
       resources: [props.userPool.userPoolArn],
+    }));
+
+    // Grant SQS permissions for document processing
+    lambdaFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'sqs:SendMessage',
+        'sqs:GetQueueAttributes',
+      ],
+      resources: [
+        `arn:aws:sqs:${this.region}:${this.account}:govbizai-document-processing-queue`,
+        `arn:aws:sqs:${this.region}:${this.account}:govbizai-profile-embedding-queue`,
+        `arn:aws:sqs:${this.region}:${this.account}:govbizai-web-scraping-queue`,
+      ],
     }));
 
     return lambdaFunction;
