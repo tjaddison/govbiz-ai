@@ -63,6 +63,7 @@ new ApiStack(app, 'GovBizAIApiStack', {
   documentsTable: infraStack.userProfilesTable, // Using userProfiles table for document metadata
   documentsBucket: infraStack.rawDocumentsBucket,
   embeddingsBucket: infraStack.embeddingsBucket,
+  kmsKey: infraStack.kmsKey,
   profileEmbeddingQueueUrl: processingStack.profileEmbeddingQueue.queueUrl,
   webScrapingQueueUrl: processingStack.webScrapingQueue.queueUrl,
 });

@@ -6,6 +6,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
@@ -20,6 +21,7 @@ export interface ApiStackProps extends cdk.StackProps {
   documentsTable: dynamodb.Table;
   documentsBucket: s3.Bucket;
   embeddingsBucket: s3.Bucket;
+  kmsKey: kms.Key;
   profileEmbeddingQueueUrl?: string;
   webScrapingQueueUrl?: string;
 }
@@ -85,6 +87,9 @@ export class ApiStack extends cdk.Stack {
     const matchesLambda = this.createLambdaFunction('matches', props);
     const feedbackLambda = this.createLambdaFunction('feedback', props);
     const analyticsLambda = this.createLambdaFunction('analytics', props);
+
+    // Grant KMS permissions to documents Lambda for presigned URL encryption
+    props.kmsKey.grantEncryptDecrypt(documentsLambda);
 
     // Create API resources and methods
     this.createApiEndpoints(authLambda, companyLambda, documentsLambda,
@@ -208,7 +213,14 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Documents endpoints
-    const documentsResource = apiResource.addResource('documents');
+    const documentsResource = apiResource.addResource('documents', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
     documentsResource.addMethod('GET', new apigateway.LambdaIntegration(documentsLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
@@ -218,8 +230,33 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    // Add upload-url endpoint for presigned URL generation
+    const uploadUrlResource = documentsResource.addResource('upload-url');
+    uploadUrlResource.addMethod('POST', new apigateway.LambdaIntegration(documentsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
     const documentIdResource = documentsResource.addResource('{id}');
+    documentIdResource.addMethod('GET', new apigateway.LambdaIntegration(documentsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
     documentIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(documentsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Add confirm endpoint for upload completion
+    const confirmResource = documentIdResource.addResource('confirm');
+    confirmResource.addMethod('POST', new apigateway.LambdaIntegration(documentsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Add download-url endpoint for presigned download URLs
+    const downloadUrlResource = documentIdResource.addResource('download-url');
+    downloadUrlResource.addMethod('GET', new apigateway.LambdaIntegration(documentsLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

@@ -42,7 +42,7 @@ export class InfrastructureStack extends cdk.Stack {
   // public restApi: apigateway.RestApi;
   // public webSocketApi: apigatewayv2.WebSocketApi;
   // public connectionsTable: dynamodb.Table;
-  private readonly kmsKey: kms.Key;
+  public readonly kmsKey: kms.Key;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -106,6 +106,30 @@ export class InfrastructureStack extends cdk.Stack {
     this.rawDocumentsBucket = new s3.Bucket(this, 'govbizai-raw-documents', {
       bucketName: `govbizai-raw-documents-${this.account}-${this.region}`,
       ...s3BucketProps,
+      cors: [
+        {
+          allowedMethods: [
+            s3.HttpMethods.GET,
+            s3.HttpMethods.PUT,
+            s3.HttpMethods.POST,
+            s3.HttpMethods.DELETE,
+            s3.HttpMethods.HEAD,
+          ],
+          allowedOrigins: [
+            'https://d21w4wbdrthfbu.cloudfront.net', // CloudFront domain
+            'http://localhost:3000', // Local development
+          ],
+          allowedHeaders: ['*'],
+          exposedHeaders: [
+            'ETag',
+            'x-amz-server-side-encryption',
+            'x-amz-server-side-encryption-aws-kms-key-id',
+            'x-amz-request-id',
+            'x-amz-id-2',
+          ],
+          maxAge: 3000,
+        },
+      ],
       lifecycleRules: [
         {
           id: 'govbizai-raw-documents-lifecycle',
@@ -123,6 +147,13 @@ export class InfrastructureStack extends cdk.Stack {
         }
       ]
     });
+
+    // Remove explicit bucket policy - presigned URLs work through IAM role permissions
+    // The CDK grantReadWrite method already provides proper IAM permissions for Lambda functions
+    // Adding a bucket policy restricts access and conflicts with presigned URL functionality
+
+    // Remove the restrictive bucket policy that blocks presigned URLs from browsers
+    // Presigned URLs work by embedding credentials in the URL, so we don't need this policy
 
     this.processedDocumentsBucket = new s3.Bucket(this, 'govbizai-processed-documents', {
       bucketName: `govbizai-processed-documents-${this.account}-${this.region}`,

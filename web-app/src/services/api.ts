@@ -49,12 +49,24 @@ class APIService {
             hasIdToken: !!idToken,
             hasAccessToken: !!accessToken,
             usingToken: idToken ? 'id_token' : (accessToken ? 'access_token' : 'none'),
-            tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
+            tokenPreview: token ? `${token.substring(0, 20)}...` : 'null',
+            url: config.url,
+            method: config.method,
+            baseURL: config.baseURL
           });
 
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
             console.log('🔧 [API] Added Authorization header with', idToken ? 'ID token' : 'access token');
+            console.log('🔧 [API] Final request config:', {
+              url: config.url,
+              method: config.method,
+              baseURL: config.baseURL,
+              headers: {
+                ...config.headers,
+                Authorization: `Bearer ${token.substring(0, 20)}...`
+              }
+            });
           } else {
             console.log('❌ [API] No token found after refresh attempt');
             throw new Error('No authentication token available');
@@ -172,11 +184,49 @@ class APIService {
 
   // Document Management API
   async getDocuments(): Promise<Document[]> {
-    const response = await this.api.get<APIResponse<Document[]>>('/api/documents');
-    if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to get documents');
+    console.log('📋 [API] getDocuments() called');
+    console.log('📋 [API] Making GET request to /api/documents');
+    console.log('📋 [API] Base URL:', process.env.REACT_APP_API_BASE_URL);
+    console.log('📋 [API] Full URL:', `${process.env.REACT_APP_API_BASE_URL}/api/documents`);
+
+    try {
+      const response = await this.api.get<APIResponse<Document[]>>('/api/documents');
+
+      console.log('📋 [API] getDocuments response received:');
+      console.log('📋 [API] Status:', response.status);
+      console.log('📋 [API] Status Text:', response.statusText);
+      console.log('📋 [API] Headers:', response.headers);
+      console.log('📋 [API] Response data:', response.data);
+      console.log('📋 [API] Response.data.success:', response.data?.success);
+      console.log('📋 [API] Response.data.data:', response.data?.data);
+      console.log('📋 [API] Response.data.error:', response.data?.error);
+
+      if (response.data?.data) {
+        console.log('📋 [API] Documents array length:', response.data.data.length);
+        console.log('📋 [API] First few documents:', response.data.data.slice(0, 3));
+      }
+
+      if (!response.data.success || !response.data.data) {
+        console.error('📋 [API] getDocuments failed validation:');
+        console.error('📋 [API] - success:', response.data?.success);
+        console.error('📋 [API] - data exists:', !!response.data?.data);
+        console.error('📋 [API] - error:', response.data?.error);
+        throw new Error(response.data.error || 'Failed to get documents');
+      }
+
+      console.log('📋 [API] getDocuments returning', response.data.data.length, 'documents');
+      return response.data.data;
+
+    } catch (error: any) {
+      console.error('📋 [API] getDocuments error:');
+      console.error('📋 [API] Error type:', typeof error);
+      console.error('📋 [API] Error message:', error.message);
+      console.error('📋 [API] Error response:', error.response);
+      console.error('📋 [API] Error response status:', error.response?.status);
+      console.error('📋 [API] Error response data:', error.response?.data);
+      console.error('📋 [API] Full error:', error);
+      throw error;
     }
-    return response.data.data;
   }
 
   async uploadDocument(file: File, documentType: string, tags: string[]): Promise<Document> {
@@ -218,16 +268,21 @@ class APIService {
   }
 
   async uploadToS3(uploadUrl: string, file: File): Promise<void> {
+    // Include KMS encryption headers to match the presigned URL signature
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       body: file,
       headers: {
         'Content-Type': file.type,
+        'x-amz-server-side-encryption': 'aws:kms',
+        'x-amz-server-side-encryption-aws-kms-key-id': 'alias/govbizai-encryption-key',
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to upload file to S3');
+      const errorText = await response.text();
+      console.error('S3 upload failed:', response.status, response.statusText, errorText);
+      throw new Error(`Failed to upload file to S3: ${response.status} ${response.statusText}`);
     }
   }
 
