@@ -130,15 +130,16 @@ def handle_upload_initiation(company_id: str, body: Dict[str, Any]) -> Dict[str,
             credentials = session.get_credentials()
             logger.info(f"Using credentials - Access Key: {credentials.access_key[:10]}..., Session Token: {'Yes' if credentials.token else 'No'}")
 
-            # Generate presigned URL with Content-Type only
-            # Remove KMS encryption from signature to allow browser uploads
-            # S3 bucket default encryption will handle encryption automatically
+            # Generate presigned URL with Content-Type and KMS encryption headers
+            # Include KMS encryption headers in signature to match frontend upload
             presigned_url = s3_client.generate_presigned_url(
                 'put_object',
                 Params={
                     'Bucket': RAW_DOCUMENTS_BUCKET,
                     'Key': s3_key,
-                    'ContentType': content_type,  # Include Content-Type in signature
+                    'ContentType': content_type,
+                    'ServerSideEncryption': 'aws:kms',
+                    'SSEKMSKeyId': 'alias/govbizai-encryption-key',
                 },
                 ExpiresIn=3600  # 1 hour
             )
