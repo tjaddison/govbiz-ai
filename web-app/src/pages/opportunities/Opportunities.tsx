@@ -165,10 +165,16 @@ const Opportunities: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: string | undefined) => {
+  const formatCurrency = (amount: string | number | undefined | null) => {
     if (!amount) return 'Not specified';
-    const num = parseFloat(amount.replace(/[^0-9.-]+/g, ''));
-    if (isNaN(num)) return amount;
+
+    // Convert to string if it's a number
+    const amountStr = typeof amount === 'string' ? amount : String(amount);
+
+    // Extract numeric value from string
+    const num = parseFloat(amountStr.replace(/[^0-9.-]+/g, ''));
+    if (isNaN(num)) return amountStr;
+
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
