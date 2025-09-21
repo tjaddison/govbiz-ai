@@ -3,6 +3,7 @@ import {
   Company,
   Document,
   Opportunity,
+  OpportunityWithMatchExplanation,
   Match,
   Analytics,
   APIResponse,
@@ -234,8 +235,9 @@ class APIService {
       // Step 1: Get presigned URL
       const { uploadUrl, key, document_id } = await this.getPresignedUploadUrl(file.name, file.type, documentType);
 
-      // Step 2: Upload to S3
+      // Step 2: Upload to S3 using the provided URL and key
       await this.uploadToS3(uploadUrl, file);
+      console.log(`File uploaded with key: ${key}`);
 
       // Step 3: Confirm upload and trigger processing
       return await this.confirmDocumentUpload(document_id, tags);
@@ -346,6 +348,33 @@ class APIService {
     return response.data.data;
   }
 
+  async getOpportunitiesWithMatchExplanations(
+    page: number = 1,
+    pageSize: number = 10,
+    filters?: FilterOptions,
+    sort?: SortOptions
+  ): Promise<PaginatedResponse<OpportunityWithMatchExplanation>> {
+    const params: any = {
+      page,
+      pageSize,
+      include_match_explanations: true,
+      active_only: false,
+      unexpired_only: false
+    };
+    if (filters) Object.assign(params, { filters: JSON.stringify(filters) });
+    if (sort) Object.assign(params, { sort: JSON.stringify(sort) });
+
+    const response = await this.api.get<APIResponse<PaginatedResponse<OpportunityWithMatchExplanation>>>(
+      '/api/opportunities',
+      { params }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get opportunities with match explanations');
+    }
+    return response.data.data;
+  }
+
   // Matching API
   async getMatches(
     page: number = 1,
@@ -428,6 +457,64 @@ class APIService {
     const response = await this.api.get<APIResponse<any>>('/api/matches/stats');
     if (!response.data.success || !response.data.data) {
       throw new Error(response.data.error || 'Failed to get match stats');
+    }
+    return response.data.data;
+  }
+
+  // Manual Matching API
+  async triggerManualMatch(opportunityId: string): Promise<Match> {
+    const response = await this.api.post<APIResponse<Match>>('/api/matches/manual', {
+      opportunity_id: opportunityId
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to trigger manual match');
+    }
+    return response.data.data;
+  }
+
+  async runBatchMatching(options?: {
+    opportunity_filters?: FilterOptions;
+    force_refresh?: boolean;
+    batch_size?: number;
+  }): Promise<{ job_id: string; message: string; estimated_time?: string }> {
+    const response = await this.api.post<APIResponse<{ job_id: string; message: string; estimated_time?: string }>>(
+      '/api/matches/batch',
+      options || {}
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to start batch matching');
+    }
+    return response.data.data;
+  }
+
+  async getBatchMatchingStatus(jobId: string): Promise<{
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    progress?: number;
+    processed_count?: number;
+    total_count?: number;
+    estimated_completion?: string;
+    error_message?: string;
+  }> {
+    const response = await this.api.get<APIResponse<{
+      status: 'pending' | 'running' | 'completed' | 'failed';
+      progress?: number;
+      processed_count?: number;
+      total_count?: number;
+      estimated_completion?: string;
+      error_message?: string;
+    }>>(`/api/matches/batch/${jobId}/status`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to get batch status');
+    }
+    return response.data.data;
+  }
+
+  async refreshCompanyEmbeddings(): Promise<{ message: string; processed_documents: number }> {
+    const response = await this.api.post<APIResponse<{ message: string; processed_documents: number }>>(
+      '/api/company/refresh-embeddings'
+    );
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to refresh company embeddings');
     }
     return response.data.data;
   }

@@ -39,10 +39,41 @@ const DocumentManagement: React.FC = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
   const [uploadProgress, setUploadProgress] = useState<{ [fileName: string]: number }>({});
 
-  const { data: documents, isLoading } = useQuery({
+  const { data: documents, isLoading, error, isError, isFetching, isSuccess } = useQuery({
     queryKey: ['documents'],
-    queryFn: apiService.getDocuments,
+    queryFn: async () => {
+      console.log('📋 [DOCUMENTS] useQuery queryFn starting...');
+      console.log('📋 [DOCUMENTS] About to call apiService.getDocuments()');
+
+      try {
+        const result = await apiService.getDocuments();
+        console.log('📋 [DOCUMENTS] useQuery queryFn success!');
+        console.log('📋 [DOCUMENTS] Received documents:', result?.length || 0);
+        console.log('📋 [DOCUMENTS] Documents data:', result);
+        return result;
+      } catch (error) {
+        console.error('📋 [DOCUMENTS] useQuery queryFn error:', error);
+        throw error;
+      }
+    },
+    retry: (failureCount, error) => {
+      console.log('📋 [DOCUMENTS] useQuery retry attempt:', failureCount, error);
+      return failureCount < 3;
+    },
+    retryDelay: 1000,
   });
+
+  // Add effect to log query state changes
+  React.useEffect(() => {
+    console.log('📋 [DOCUMENTS] Query state changed:', {
+      isLoading,
+      isFetching,
+      isSuccess,
+      isError,
+      documentsCount: documents?.length || 0,
+      error: error?.message || null
+    });
+  }, [isLoading, isFetching, isSuccess, isError, documents, error]);
 
   const uploadMutation = useMutation({
     mutationFn: async ({ file, type, tagList }: { file: File; type: DocumentType; tagList: string[] }) => {
@@ -220,11 +251,24 @@ const DocumentManagement: React.FC = () => {
       </Card>
 
       {/* Documents List */}
-      {isLoading ? (
-        <LinearProgress />
-      ) : documents?.length ? (
-        <Grid container spacing={3}>
-          {documents.map((doc) => (
+      {(() => {
+        console.log('📋 [RENDER] Rendering documents section...');
+        console.log('📋 [RENDER] isLoading:', isLoading);
+        console.log('📋 [RENDER] documents:', documents);
+        console.log('📋 [RENDER] documents?.length:', documents?.length);
+        console.log('📋 [RENDER] typeof documents:', typeof documents);
+        console.log('📋 [RENDER] Array.isArray(documents):', Array.isArray(documents));
+
+        if (isLoading) {
+          console.log('📋 [RENDER] Showing loading spinner');
+          return <LinearProgress />;
+        } else if (documents?.length) {
+          console.log('📋 [RENDER] Showing', documents.length, 'documents');
+          return (
+            <Grid container spacing={3}>
+              {documents.map((doc, index) => {
+                console.log('📋 [RENDER] Rendering document', index + 1, ':', doc);
+                return (
             <Grid item xs={12} sm={6} md={4} key={doc.document_id}>
               <Card>
                 <CardContent>
@@ -307,13 +351,20 @@ const DocumentManagement: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Alert severity="info">
-          No documents uploaded yet. Start by uploading your first document using the upload zone above.
-        </Alert>
-      )}
+                );
+              })}
+            </Grid>
+          );
+        } else {
+          console.log('📋 [RENDER] No documents found, showing empty state');
+          console.log('📋 [RENDER] documents is:', documents);
+          return (
+            <Alert severity="info">
+              No documents uploaded yet. Start by uploading your first document using the upload zone above.
+            </Alert>
+          );
+        }
+      })()}
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialog} onClose={() => setUploadDialog(false)} maxWidth="sm" fullWidth>

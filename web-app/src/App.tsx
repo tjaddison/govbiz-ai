@@ -19,6 +19,7 @@ import OpportunityDetail from './pages/opportunities/OpportunityDetail';
 import Matches from './pages/matches/Matches';
 import MatchDetail from './pages/matches/MatchDetail';
 import Analytics from './pages/Analytics';
+import ManualMatching from './components/ManualMatching';
 import './App.css';
 
 const theme = createTheme({
@@ -167,6 +168,7 @@ const App: React.FC = () => {
                         {/* Match routes */}
                         <Route path="/matches" element={<Matches />} />
                         <Route path="/matches/:id" element={<MatchDetail />} />
+                        <Route path="/matches/manual" element={<ManualMatching />} />
 
                         {/* Analytics */}
                         <Route path="/analytics" element={<Analytics />} />

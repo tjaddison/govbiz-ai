@@ -84,6 +84,7 @@ export interface Opportunity {
   response_deadline: string;
   naics_code: string;
   set_aside: string;
+  set_aside_code?: string;
   type: string;
   description: string;
   award_amount?: string;
@@ -100,6 +101,9 @@ export interface Opportunity {
   };
   attachments: AttachmentInfo[];
   sam_url: string;
+  active?: string;
+  is_expired?: boolean;
+  days_until_deadline?: number;
 }
 
 export interface ContactInfo {
@@ -131,6 +135,37 @@ export interface Match {
   created_at: string;
   updated_at: string;
   user_feedback?: UserFeedback;
+  opportunity: {
+    title: string;
+    description: string;
+    department: string;
+    sub_tier?: string;
+    office?: string;
+    response_deadline: string;
+    posted_date: string;
+    set_aside: string;
+    set_aside_code?: string;
+    naics_code: string;
+    type: string;
+    award_amount?: string;
+    sam_gov_link: string;
+    pop_city?: string;
+    pop_state?: string;
+  };
+}
+
+export interface MatchExplanation {
+  total_score: number;
+  confidence_level: 'HIGH' | 'MEDIUM' | 'LOW' | 'NO_MATCH';
+  component_scores: ComponentScores;
+  match_reasons: string[];
+  non_match_reasons: string[];
+  recommendations: string[];
+  action_items: string[];
+}
+
+export interface OpportunityWithMatchExplanation extends Opportunity {
+  match_explanation?: MatchExplanation;
 }
 
 export interface ComponentScores {
@@ -202,6 +237,10 @@ export interface FilterOptions {
   minScore?: number;
   maxScore?: number;
   pursued?: boolean;
+  posted_after?: string;
+  posted_before?: string;
+  department?: string;
+  set_aside?: string;
 }
 
 export interface SortOptions {

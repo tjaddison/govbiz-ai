@@ -74,6 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Documents', icon: <DocumentIcon />, path: '/app/company/documents' },
     { text: 'Opportunities', icon: <OpportunityIcon />, path: '/app/opportunities' },
     { text: 'Matches', icon: <MatchIcon />, path: '/app/matches' },
+    { text: 'Manual Matching', icon: <SettingsIcon />, path: '/app/matches/manual' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/app/analytics' },
   ];
 
