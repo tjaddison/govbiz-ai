@@ -166,6 +166,8 @@ export interface MatchExplanation {
 
 export interface OpportunityWithMatchExplanation extends Opportunity {
   match_explanation?: MatchExplanation;
+  match_id?: string;
+  deep_analysis_url?: string;
 }
 
 export interface ComponentScores {

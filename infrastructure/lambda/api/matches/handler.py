@@ -169,7 +169,7 @@ def handle_list_matches(company_id: str, query_params: Dict[str, str]) -> Dict[s
                 'match_id': match_id,
                 'opportunity_id': item.get('opportunity_id', ''),
                 'company_id': item.get('company_id', ''),
-                'tenant_id': item.get('tenant_id') or 'test-tenant',
+                'tenant_id': item.get('tenant_id'),
                 'total_score': float(item.get('total_score', 0)),
                 'confidence_level': item.get('confidence_level', 'LOW'),
                 'component_scores': {
@@ -382,18 +382,11 @@ def handle_get_match_stats(company_id: str, query_params: Dict[str, str]) -> Dic
     try:
         matches_table = dynamodb.Table(MATCHES_TABLE_NAME)
 
-        # Try to scan for all matches for this company (fallback method)
-        try:
-            response = matches_table.scan(
-                FilterExpression='company_id = :company_id',
-                ExpressionAttributeValues={':company_id': company_id}
-            )
-        except Exception:
-            # If scan fails, use query with an index if available
-            response = matches_table.query(
-                KeyConditionExpression='company_id = :company_id',
-                ExpressionAttributeValues={':company_id': company_id}
-            )
+        # Scan for all matches for this company
+        response = matches_table.scan(
+            FilterExpression='company_id = :company_id',
+            ExpressionAttributeValues={':company_id': company_id}
+        )
 
         matches = response.get('Items', [])
 
@@ -664,21 +657,9 @@ def handle_batch_matching(company_id: str, body: Dict[str, Any]) -> Dict[str, An
                 logger.error(f"❌ [ERROR] Step Functions execution failed: {str(sf_error)}")
                 return create_error_response(500, 'STEP_FUNCTIONS_ERROR', f'Failed to start batch processing: {str(sf_error)}')
         else:
-            # Fallback: simulate batch processing without Step Functions
-            logger.warning("⚠️ [WARNING] PROCESSING_STATE_MACHINE_ARN not configured, simulating batch matching")
-
-            return {
-                'statusCode': 200,
-                'headers': get_cors_headers(),
-                'body': json.dumps({
-                    'success': True,
-                    'data': {
-                        'job_id': job_id,
-                        'message': 'Batch matching started (simulation mode)',
-                        'estimated_time': 'Immediate (demo mode)'
-                    }
-                })
-            }
+            # Step Functions is required for batch processing
+            logger.error("❌ [ERROR] PROCESSING_STATE_MACHINE_ARN not configured")
+            return create_error_response(501, 'BATCH_PROCESSING_NOT_CONFIGURED', 'Batch processing Step Functions not configured')
 
     except Exception as e:
         logger.error(f"💥 [FATAL_ERROR] Error starting batch matching: {str(e)}")
@@ -771,22 +752,9 @@ def handle_get_batch_status(company_id: str, job_id: str) -> Dict[str, Any]:
                 # Return job info without Step Functions status
                 pass
 
-        # Fallback: return basic job info
-        logger.info(f"📋 [FALLBACK] Returning basic job info (simulation mode)")
-        return {
-            'statusCode': 200,
-            'headers': get_cors_headers(),
-            'body': json.dumps({
-                'success': True,
-                'data': {
-                    'status': 'completed',  # Default status
-                    'job_id': job_id,
-                    'started_at': job_info.get('started_at'),
-                    'current_matches': current_matches,
-                    'message': 'Job completed (simulation mode)'
-                }
-            })
-        }
+        # Job not found or invalid
+        logger.error(f"❌ [ERROR] Batch job {job_id} not found or invalid")
+        return create_error_response(404, 'BATCH_JOB_NOT_FOUND', f'Batch job {job_id} not found')
 
     except Exception as e:
         logger.error(f"💥 [STATUS_ERROR] Error getting batch status: {str(e)}")
@@ -819,44 +787,40 @@ def handle_manual_match(company_id: str, body: Dict[str, Any]) -> Dict[str, Any]
         if not opportunity_id:
             return create_error_response(400, 'MISSING_OPPORTUNITY_ID', 'opportunity_id is required')
 
-        # For now, return a mock match result
-        # In a full implementation, this would call the matching engine
-        mock_match = {
-            'company_id': company_id,
-            'opportunity_id': opportunity_id,
-            'total_score': 0.75,
-            'confidence_level': 'HIGH',
-            'component_scores': {
-                'semantic_similarity': 0.80,
-                'keyword_match': 0.70,
-                'naics_alignment': 1.0,
-                'past_performance': 0.60,
-                'certification_bonus': 0.50,
-                'geographic_match': 0.90,
-                'capacity_fit': 0.80,
-                'recency_factor': 0.70
-            },
-            'match_reasons': [
-                'Strong NAICS code alignment (exact match)',
-                'High semantic similarity with opportunity description',
-                'Geographic proximity to opportunity location'
-            ],
-            'recommendations': [
-                'Review technical requirements for compliance',
-                'Prepare capability statement highlighting relevant experience',
-                'Consider teaming opportunities for capacity expansion'
-            ],
-            'timestamp': datetime.utcnow().isoformat() + 'Z'
-        }
+        # Invoke the actual matching engine for this specific opportunity
+        if MATCHING_ENGINE_FUNCTION_ARN:
+            try:
+                # Call the matching engine Lambda function
+                response = lambda_client.invoke(
+                    FunctionName=MATCHING_ENGINE_FUNCTION_ARN,
+                    InvocationType='RequestResponse',
+                    Payload=json.dumps({
+                        'company_id': company_id,
+                        'opportunity_id': opportunity_id,
+                        'manual_trigger': True
+                    })
+                )
 
-        return {
-            'statusCode': 200,
-            'headers': get_cors_headers(),
-            'body': json.dumps({
-                'success': True,
-                'data': mock_match
-            })
-        }
+                result = json.loads(response['Payload'].read())
+
+                if result.get('statusCode') == 200:
+                    match_data = json.loads(result['body'])
+                    return {
+                        'statusCode': 200,
+                        'headers': get_cors_headers(),
+                        'body': json.dumps({
+                            'success': True,
+                            'data': match_data.get('data', {})
+                        })
+                    }
+                else:
+                    return create_error_response(500, 'MATCHING_ENGINE_ERROR', 'Matching engine returned an error')
+
+            except Exception as engine_error:
+                logger.error(f"Error calling matching engine: {str(engine_error)}")
+                return create_error_response(500, 'MATCHING_ENGINE_FAILED', 'Failed to invoke matching engine')
+        else:
+            return create_error_response(501, 'MATCHING_ENGINE_NOT_CONFIGURED', 'Matching engine is not configured')
 
     except Exception as e:
         logger.error(f"Error in manual matching: {str(e)}")
@@ -1037,8 +1001,7 @@ def get_total_opportunities_count() -> int:
     try:
         opportunities_table = dynamodb.Table(OPPORTUNITIES_TABLE_NAME)
 
-        # Use scan to count all opportunities (for demo purposes)
-        # In production, you might want to cache this or use a more efficient method
+        # Count all opportunities in the database
         response = opportunities_table.scan(
             Select='COUNT',
             FilterExpression='attribute_exists(notice_id)'

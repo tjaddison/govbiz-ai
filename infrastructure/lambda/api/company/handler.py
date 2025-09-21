@@ -34,10 +34,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         query_parameters = event.get('queryStringParameters') or {}
         body = json.loads(event.get('body', '{}')) if event.get('body') else {}
 
-        # Extract company_id from token or use default for development
+        # Extract company_id from token
         company_id = get_company_id_from_token(event)
         if not company_id:
-            company_id = 'default-company-id'  # Fallback for development
+            return create_error_response(401, 'UNAUTHORIZED', 'Invalid or missing authentication token')
 
         # Route based on HTTP method and path
         if http_method == 'GET':

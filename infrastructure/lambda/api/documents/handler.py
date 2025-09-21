@@ -320,7 +320,7 @@ def handle_list_documents(company_id: str, query_params: Dict[str, str]) -> Dict
                 'file_size': doc.get('file_size') or 0,
                 'mime_type': doc.get('content_type', ''),
                 'upload_date': doc.get('created_at', ''),
-                's3_bucket': 'govbizai-raw-documents-927576824761-us-east-1',  # From environment
+                's3_bucket': RAW_DOCUMENTS_BUCKET,
                 's3_key': doc.get('s3_key', ''),
                 'processing_status': doc.get('status', 'uploading'),
                 'embedding_id': doc.get('embedding_id'),

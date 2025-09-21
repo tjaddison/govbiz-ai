@@ -1,0 +1,96 @@
+{
+  "mcpServers": {
+    "aws-core-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.core-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": ""
+      }
+    },
+    "aws-documentation-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-documentation-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": ""
+      }
+    },
+    "aws-cli-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-aws-cli"
+      ],
+      "env": {}
+    },
+    "aws-cost-analysis": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.cost-analysis-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "",
+        "AWS_PROFILE": ""
+      }
+    },
+    "aws-dynamodb-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.dynamodb-mcp-server@latest"
+      ],
+      "env": {
+        "DDB-MCP-READONLY": "",
+        "AWS_PROFILE": "",
+        "AWS_REGION": ""
+      }
+    },
+    "github-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {}
+    },
+    "filesystem-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-filesystem",
+        "/path/to/your/project"
+      ],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "puppeteer-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {}
+    },
+    "aws-cloud-control": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "awslabs.cloud-control-mcp-server@latest"
+      ],
+      "env": {}
+    }
+  }
+}

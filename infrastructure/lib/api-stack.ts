@@ -295,7 +295,7 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
-    // Opportunities endpoints (public access for demo)
+    // Opportunities endpoints (secured - return company-specific matches)
     const opportunitiesResource = apiResource.addResource('opportunities', {
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
@@ -305,17 +305,20 @@ export class ApiStack extends cdk.Stack {
       },
     });
     opportunitiesResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      apiKeyRequired: false,
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
     const opportunityIdResource = opportunitiesResource.addResource('{id}');
     opportunityIdResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      apiKeyRequired: false,
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
     const attachmentsResource = opportunityIdResource.addResource('attachments');
     attachmentsResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      apiKeyRequired: false,
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
     const feedbackResource = opportunityIdResource.addResource('feedback');

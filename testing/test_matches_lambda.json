@@ -1,0 +1,14 @@
+{
+  "httpMethod": "GET",
+  "path": "/api/matches",
+  "headers": {
+    "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlNGQ4ZjQ1OC1iMDMxLTcwZWQtYWVlMS1mMzE4ZjAyOTAwMTciLCJpYXQiOjE3MjY4NjI1MzEsImV4cCI6MTcyNjg2NjEzMX0.test"
+  },
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "sub": "e4d8f458-b031-70ed-aee1-f318f0290017"
+      }
+    }
+  }
+}

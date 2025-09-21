@@ -34,7 +34,8 @@ import {
   MonetizationOn as MoneyIcon,
   ExpandMore as ExpandMoreIcon,
   Clear as ClearIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Analytics as AnalyticsIcon
 } from '@mui/icons-material';
 import { apiService } from '../../services/api';
 import { OpportunityWithMatchExplanation } from '../../types';
@@ -240,7 +241,10 @@ const Opportunities: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Government Contract Opportunities
+        Matched Opportunities
+      </Typography>
+      <Typography variant="body1" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
+        These are government contract opportunities that match your company profile and capabilities.
       </Typography>
 
       {/* Filter Controls */}
@@ -355,7 +359,7 @@ const Opportunities: React.FC = () => {
       {/* Pagination Controls (Top) */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="body1">
-          {loading ? 'Loading...' : `${totalCount} opportunities found`}
+          {loading ? 'Loading...' : `${totalCount} matched opportunities found`}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <FormControl size="small">
@@ -533,6 +537,17 @@ const Opportunities: React.FC = () => {
                     >
                       View on SAM.gov
                     </Button>
+                    {opportunity.deep_analysis_url && (
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={() => navigate(opportunity.deep_analysis_url!)}
+                        startIcon={<AnalyticsIcon />}
+                        sx={{ ml: 1 }}
+                      >
+                        Deep Analysis
+                      </Button>
+                    )}
                     <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
                       Posted: {formatDate(opportunity.posted_date)}
                     </Typography>

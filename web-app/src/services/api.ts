@@ -32,6 +32,8 @@ class APIService {
     this.api.interceptors.request.use(
       async (config) => {
         try {
+          // All endpoints now require authentication - no public access
+
           // Check if we have tokens
           const hasTokens = localStorage.getItem('id_token') || localStorage.getItem('access_token');
           if (!hasTokens) {
@@ -126,41 +128,7 @@ class APIService {
       return response.data.data;
     } catch (error: any) {
 
-      // If this is an authentication error or network error (CORS), return a mock profile to allow the app to function
-      if (error.response?.status === 401 ||
-          error.response?.status === 403 ||
-          error.code === 'ERR_NETWORK' ||
-          error.message === 'Network Error' ||
-          error.message?.includes('Authentication')) {
-        return {
-          tenant_id: 'demo-tenant',
-          company_id: 'mock-company-id',
-          company_name: 'Demo Company Inc.',
-          duns_number: '123456789',
-          cage_code: 'DEMO1',
-          uei: 'ABC123DEF456',
-          website_url: 'https://demo-company.com',
-          naics_codes: ['541511', '541512'],
-          certifications: ['8(a)', 'WOSB'],
-          revenue_range: '$1M-$5M',
-          employee_count: '11-50',
-          locations: [
-            {
-              city: 'Washington',
-              state: 'DC',
-              zip_code: '20001'
-            }
-          ],
-          capability_statement: 'Demo company providing technology solutions for government contracts.',
-          primary_contact_name: 'John Doe',
-          primary_contact_email: 'john@demo-company.com',
-          primary_contact_phone: '(555) 123-4567',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          is_active: true,
-          version: 1
-        };
-      }
+      // Re-throw authentication and network errors - no fallback to demo data
 
       throw error;
     }
@@ -354,15 +322,40 @@ class APIService {
     filters?: FilterOptions,
     sort?: SortOptions
   ): Promise<PaginatedResponse<OpportunityWithMatchExplanation>> {
+    console.log('🔍 [API] getOpportunitiesWithMatchExplanations called - v2.0');
+
     const params: any = {
       page,
       pageSize,
-      include_match_explanations: true,
       active_only: false,
       unexpired_only: false
     };
-    if (filters) Object.assign(params, { filters: JSON.stringify(filters) });
-    if (sort) Object.assign(params, { sort: JSON.stringify(sort) });
+
+    // Only add filters if they have actual meaningful filter criteria
+    if (filters) {
+      const meaningfulFilters = Object.keys(filters).filter(key =>
+        key !== 'page' && key !== 'limit' && key !== 'active_only' && key !== 'unexpired_only' &&
+        (filters as any)[key] !== undefined && (filters as any)[key] !== '' && (filters as any)[key] !== null
+      );
+
+      if (meaningfulFilters.length > 0) {
+        const filteredObj: any = {};
+        meaningfulFilters.forEach(key => {
+          filteredObj[key] = (filters as any)[key];
+        });
+        params.filters = JSON.stringify(filteredObj);
+        console.log('🔍 [API] Adding meaningful filters:', filteredObj);
+      } else {
+        console.log('🔍 [API] No meaningful filters, skipping filters parameter');
+      }
+    }
+
+    if (sort && Object.keys(sort).length > 0) {
+      params.sort = JSON.stringify(sort);
+      console.log('🔍 [API] Adding sort parameters:', sort);
+    }
+
+    console.log('🔍 [API] Final request params:', params);
 
     const response = await this.api.get<APIResponse<PaginatedResponse<OpportunityWithMatchExplanation>>>(
       '/api/opportunities',

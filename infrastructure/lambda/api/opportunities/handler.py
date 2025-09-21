@@ -27,11 +27,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         path_parameters = event.get('pathParameters') or {}
         query_parameters = event.get('queryStringParameters') or {}
 
-        # Extract company_id from token for audit logging (optional for demo)
+        # Extract company_id from token - required for company-specific opportunity matching
         company_id = get_company_id_from_token(event)
         if not company_id:
-            # For demo purposes, allow anonymous access
-            company_id = 'demo-user'
+            return create_error_response(401, 'UNAUTHORIZED', 'Invalid or missing authentication token')
 
         # Route based on HTTP method and path
         if http_method == 'GET' and not path_parameters.get('id'):
@@ -51,215 +50,195 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return create_error_response(500, 'INTERNAL_ERROR', 'Internal server error')
 
 def handle_list_opportunities(company_id: str, query_params: Dict[str, str]) -> Dict[str, Any]:
-    """List opportunities with filtering and pagination"""
+    """List only opportunities that have matches for this company"""
     try:
         logger.info(f"handle_list_opportunities called with company_id={company_id}, query_params={query_params}")
+
+        # First, get all matches for this company from the matches table
+        matches_table = dynamodb.Table(MATCHES_TABLE_NAME)
         opportunities_table = dynamodb.Table(OPPORTUNITIES_TABLE_NAME)
 
-        # Match explanations are now stored separately and joined via match results table
-        include_match_explanations = False
+        # Build filter for matches table
+        scan_kwargs = {
+            'FilterExpression': 'company_id = :company_id',
+            'ExpressionAttributeValues': {':company_id': company_id}
+        }
 
-        # Build filter parameters
-        filter_expression = None
-        expression_attribute_names = {}
-        expression_attribute_values = {}
+        # Apply additional filters to matches
+        confidence_filter = query_params.get('confidence_level')
+        if confidence_filter and confidence_filter != 'ALL':
+            scan_kwargs['FilterExpression'] += ' AND confidence_level = :confidence'
+            scan_kwargs['ExpressionAttributeValues'][':confidence'] = confidence_filter.upper()
 
-        # Date range filtering
-        posted_after = query_params.get('posted_after')
-        posted_before = query_params.get('posted_before')
+        min_score = query_params.get('min_score')
+        if min_score:
+            scan_kwargs['FilterExpression'] += ' AND total_score >= :min_score'
+            scan_kwargs['ExpressionAttributeValues'][':min_score'] = Decimal(str(min_score))
 
-        if posted_after:
-            filter_expression = add_filter(
-                filter_expression,
-                "#posted_date >= :posted_after",
-                expression_attribute_names,
-                expression_attribute_values,
-                {"#posted_date": "posted_date"},
-                {":posted_after": posted_after}
-            )
+        # Get all matches for this company
+        logger.info(f"Querying matches table with: {scan_kwargs}")
+        matches_response = matches_table.scan(**scan_kwargs)
+        matches = matches_response.get('Items', [])
 
-        if posted_before:
-            filter_expression = add_filter(
-                filter_expression,
-                "#posted_date <= :posted_before",
-                expression_attribute_names,
-                expression_attribute_values,
-                {"#posted_date": "posted_date"},
-                {":posted_before": posted_before}
-            )
+        # Continue scanning if there are more matches
+        while 'LastEvaluatedKey' in matches_response:
+            scan_kwargs['ExclusiveStartKey'] = matches_response['LastEvaluatedKey']
+            matches_response = matches_table.scan(**scan_kwargs)
+            matches.extend(matches_response.get('Items', []))
 
-        # NAICS code filtering
-        naics_code = query_params.get('naics_code')
-        if naics_code:
-            filter_expression = add_filter(
-                filter_expression,
-                "begins_with(naics_code, :naics)",
-                expression_attribute_names,
-                expression_attribute_values,
-                {},
-                {":naics": naics_code}
-            )
+        logger.info(f"Found {len(matches)} matches for company {company_id}")
 
-        # Set-aside filtering
-        set_aside = query_params.get('set_aside')
-        if set_aside:
-            filter_expression = add_filter(
-                filter_expression,
-                "set_aside_code = :set_aside",
-                expression_attribute_names,
-                expression_attribute_values,
-                {},
-                {":set_aside": set_aside}
-            )
+        if not matches:
+            return {
+                'statusCode': 200,
+                'headers': get_cors_headers(),
+                'body': json.dumps({
+                    'success': True,
+                    'data': {
+                        'items': [],
+                        'totalCount': 0,
+                        'pageSize': int(query_params.get('pageSize', '50')),
+                        'currentPage': int(query_params.get('page', '1')),
+                        'totalPages': 0
+                    },
+                    'message': 'No matched opportunities found for this company'
+                })
+            }
 
-        # Search filtering (title, description, sol_number)
+        # Sort matches by score (highest first) then by created date
+        matches.sort(key=lambda x: (float(x.get('total_score', 0)), x.get('created_at', '')), reverse=True)
+
+        # Apply pagination to matches
+        page = int(query_params.get('page', '1'))
+        page_size = min(int(query_params.get('pageSize', '50')), 100)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_matches = matches[start_idx:end_idx]
+
+        # Get opportunity details for the paginated matches
+        opportunity_ids = [match.get('opportunity_id') for match in paginated_matches if match.get('opportunity_id')]
+
+        # Batch get opportunity details
+        opportunities_with_matches = []
+
+        # Process in batches of 100 (DynamoDB batch_get_item limit)
+        for i in range(0, len(opportunity_ids), 100):
+            batch_ids = opportunity_ids[i:i+100]
+
+            if not batch_ids:
+                continue
+
+            # Build batch get request
+            request_items = []
+            for opp_id in batch_ids:
+                # Try to find the opportunity by notice_id (partition key)
+                request_items.append({'notice_id': opp_id})
+
+            if request_items:
+                try:
+                    batch_response = dynamodb.batch_get_item(
+                        RequestItems={
+                            OPPORTUNITIES_TABLE_NAME: {
+                                'Keys': request_items
+                            }
+                        }
+                    )
+
+                    batch_opportunities = batch_response.get('Responses', {}).get(OPPORTUNITIES_TABLE_NAME, [])
+
+                    # Create a map of opportunity_id to opportunity details
+                    opp_map = {opp.get('notice_id'): opp for opp in batch_opportunities}
+
+                    # Match opportunities with their match data
+                    for match in paginated_matches[i:i+100]:
+                        opportunity_id = match.get('opportunity_id')
+                        if opportunity_id in opp_map:
+                            opportunity = opp_map[opportunity_id]
+
+                            # Convert DynamoDB types
+                            opportunity = json.loads(json.dumps(opportunity, default=decimal_default))
+
+                            # Add computed fields
+                            opportunity['is_expired'] = is_opportunity_expired(opportunity.get('response_deadline'))
+                            opportunity['days_until_deadline'] = get_days_until_deadline(opportunity.get('response_deadline'))
+
+                            # Ensure SAM.gov URL is properly formatted
+                            if 'sam_url' not in opportunity and opportunity.get('notice_id'):
+                                opportunity['sam_url'] = f"https://sam.gov/opp/{opportunity['notice_id']}"
+
+                            # Add match explanation from the match record
+                            match_explanation = {
+                                'total_score': float(match.get('total_score', 0)),
+                                'confidence_level': match.get('confidence_level', 'LOW'),
+                                'component_scores': {
+                                    'semantic_similarity': float(match.get('component_scores', {}).get('semantic_similarity', 0)),
+                                    'keyword_match': float(match.get('component_scores', {}).get('keyword_matching', 0)),
+                                    'naics_alignment': float(match.get('component_scores', {}).get('naics_alignment', 0)),
+                                    'past_performance': float(match.get('component_scores', {}).get('past_performance', 0)),
+                                    'certification_bonus': float(match.get('component_scores', {}).get('certification_bonus', 0)),
+                                    'geographic_match': float(match.get('component_scores', {}).get('geographic_match', 0)),
+                                    'capacity_fit': float(match.get('component_scores', {}).get('capacity_fit', 0)),
+                                    'recency_factor': float(match.get('component_scores', {}).get('recency_factor', 0))
+                                },
+                                'match_reasons': match.get('match_reasons', []),
+                                'non_match_reasons': match.get('non_match_reasons', []),
+                                'recommendations': match.get('recommendations', []),
+                                'action_items': match.get('action_items', [])
+                            }
+
+                            opportunity['match_explanation'] = match_explanation
+                            opportunity['match_id'] = match.get('match_id', f"{company_id}-{opportunity_id}")
+                            opportunity['deep_analysis_url'] = f"/app/matches/{opportunity['match_id']}"
+
+                            opportunities_with_matches.append(opportunity)
+
+                except Exception as e:
+                    logger.error(f"Error batch getting opportunities: {str(e)}")
+                    continue
+
+        # Apply additional opportunity-level filters if needed
         search = query_params.get('search')
         if search:
             search_lower = search.lower()
-            filter_expression = add_filter(
-                filter_expression,
-                "(contains(lower(title), :search) OR contains(lower(description), :search) OR contains(lower(sol_number), :search))",
-                expression_attribute_names,
-                expression_attribute_values,
-                {},
-                {":search": search_lower}
-            )
+            filtered_opportunities = []
+            for opp in opportunities_with_matches:
+                title = opp.get('title', '').lower()
+                description = opp.get('description', '').lower()
+                sol_number = opp.get('sol_number', '').lower()
 
-        # Department filtering
+                if (search_lower in title or search_lower in description or search_lower in sol_number):
+                    filtered_opportunities.append(opp)
+
+            opportunities_with_matches = filtered_opportunities
+
+        # Apply department filter
         department = query_params.get('department')
-        if department:
-            filter_expression = add_filter(
-                filter_expression,
-                "#department = :department",
-                expression_attribute_names,
-                expression_attribute_values,
-                {"#department": "department"},
-                {":department": department}
-            )
+        if department and department != 'All Departments':
+            opportunities_with_matches = [
+                opp for opp in opportunities_with_matches
+                if opp.get('department') == department
+            ]
 
-        # Active status filtering - DISABLED because active field is null in actual data
-        # active_only = query_params.get('active_only', 'true').lower() == 'true'
-        # if active_only:
-        #     filter_expression = add_filter(
-        #         filter_expression,
-        #         "#active = :active",
-        #         expression_attribute_names,
-        #         expression_attribute_values,
-        #         {"#active": "active"},
-        #         {":active": "Active"}
-        #     )
+        # Apply NAICS filter
+        naics_code = query_params.get('naics_code')
+        if naics_code and naics_code != 'All NAICS':
+            opportunities_with_matches = [
+                opp for opp in opportunities_with_matches
+                if opp.get('naics_code', '').startswith(naics_code)
+            ]
 
-        # Response deadline filtering (only show unexpired) - DISABLED for now to get all data
-        # Data has various date formats: "2025-09-19", "2025-09-15T12:00:00-04:00", need to handle properly
-        # unexpired_only = query_params.get('unexpired_only', 'true').lower() == 'true'
-        # if unexpired_only:
-        #     current_date = datetime.utcnow().strftime('%Y-%m-%d')  # Changed to match actual format
-        #     filter_expression = add_filter(
-        #         filter_expression,
-        #         "response_deadline >= :current_date",
-        #         expression_attribute_names,
-        #         expression_attribute_values,
-        #         {},
-        #         {":current_date": current_date}
-        #     )
+        # Apply set-aside filter
+        set_aside = query_params.get('set_aside')
+        if set_aside and set_aside != 'All Types':
+            opportunities_with_matches = [
+                opp for opp in opportunities_with_matches
+                if opp.get('set_aside') == set_aside or opp.get('set_aside_code') == set_aside
+            ]
 
-        # Pagination
-        page = int(query_params.get('page', '1'))
-        limit = min(int(query_params.get('limit', '50')), 100)  # Max 100 per page
-
-        # Use efficient DynamoDB pagination with GSI or optimized scan
-        scan_kwargs = {
-            'Limit': limit * 3,  # Get a bit more to account for filtering
-        }
-
-        if filter_expression:
-            scan_kwargs['FilterExpression'] = filter_expression
-            if expression_attribute_names:
-                scan_kwargs['ExpressionAttributeNames'] = expression_attribute_names
-            if expression_attribute_values:
-                scan_kwargs['ExpressionAttributeValues'] = expression_attribute_values
-
-        # For pagination beyond page 1, we need to calculate skip
-        items_to_skip = (page - 1) * limit
-        items = []
-        items_scanned = 0
-        total_count_estimate = 0
-
-        logger.info(f"DynamoDB scan kwargs: {scan_kwargs}")
-
-        response = opportunities_table.scan(**scan_kwargs)
-
-        # Process response and handle pagination
-        while True:
-            batch_items = response.get('Items', [])
-            items_scanned += response.get('Count', 0)
-
-            # Sort this batch by posted date (most recent first)
-            def get_sort_date(item):
-                date_str = item.get('posted_date', '')
-                try:
-                    return date_str.split(' ')[0] if date_str else '0000-00-00'
-                except:
-                    return '0000-00-00'
-
-            batch_items.sort(key=get_sort_date, reverse=True)
-
-            # Add items based on pagination
-            for item in batch_items:
-                if len(items) < items_to_skip:
-                    # Skip items for previous pages
-                    continue
-                elif len(items) < items_to_skip + limit:
-                    # Add items for current page
-                    items.append(item)
-                else:
-                    # We have enough items for this page
-                    break
-
-            # Check if we have enough items or if there are more pages
-            if len(items) >= items_to_skip + limit or 'LastEvaluatedKey' not in response:
-                break
-
-            # Continue scanning for more items
-            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-            response = opportunities_table.scan(**scan_kwargs)
-
-            # Safety break to prevent infinite loops
-            if items_scanned >= 10000:
-                logger.warning(f"Hit safety limit of 10k scanned items, stopping at {items_scanned}")
-                break
-
-        # Get final paginated items (remove skipped items from our collection)
-        paginated_items = items[items_to_skip:items_to_skip + limit] if len(items) > items_to_skip else []
-
-        # Estimate total count
-        total_count_estimate = max(items_scanned, len(items) + items_to_skip)
-
-        # Get match explanations for these opportunities
-        match_explanations = get_match_explanations_for_opportunities(company_id, [item.get('notice_id') for item in paginated_items])
-
-        # Convert Decimal to float for JSON serialization and add computed fields
-        processed_items = []
-        for item in paginated_items:
-            # Convert DynamoDB types
-            opportunity = json.loads(json.dumps(item, default=decimal_default))
-
-            # Add computed fields
-            opportunity['is_expired'] = is_opportunity_expired(opportunity.get('response_deadline'))
-            opportunity['days_until_deadline'] = get_days_until_deadline(opportunity.get('response_deadline'))
-
-            # Ensure SAM.gov URL is properly formatted
-            if 'sam_url' not in opportunity and opportunity.get('notice_id'):
-                opportunity['sam_url'] = f"https://sam.gov/opp/{opportunity['notice_id']}"
-
-            # Add match explanation if available
-            notice_id = opportunity.get('notice_id')
-            if notice_id in match_explanations:
-                opportunity['match_explanation'] = match_explanations[notice_id]
-
-            processed_items.append(opportunity)
-
-        paginated_items = processed_items
+        # Calculate pagination info
+        total_matched_count = len(matches)
+        total_filtered_count = len(opportunities_with_matches)
+        total_pages = (total_matched_count + page_size - 1) // page_size if total_matched_count > 0 else 1
 
         return {
             'statusCode': 200,
@@ -267,13 +246,14 @@ def handle_list_opportunities(company_id: str, query_params: Dict[str, str]) -> 
             'body': json.dumps({
                 'success': True,
                 'data': {
-                    'items': paginated_items,
-                    'totalCount': total_count_estimate,
-                    'pageSize': limit,
+                    'items': opportunities_with_matches,
+                    'totalCount': total_matched_count,  # Total matches available
+                    'filteredCount': total_filtered_count,  # After additional filtering
+                    'pageSize': page_size,
                     'currentPage': page,
-                    'totalPages': (total_count_estimate + limit - 1) // limit if total_count_estimate > 0 else 1
+                    'totalPages': total_pages
                 },
-                'message': f'Retrieved {len(paginated_items)} opportunities'
+                'message': f'Retrieved {len(opportunities_with_matches)} matched opportunities'
             })
         }
 
@@ -379,64 +359,7 @@ def handle_get_opportunity_attachments(company_id: str, notice_id: str) -> Dict[
         logger.error(f"Error getting opportunity attachments: {str(e)}")
         return create_error_response(500, 'GET_ATTACHMENTS_FAILED', 'Failed to get opportunity attachments')
 
-def get_match_explanations_for_opportunities(company_id: str, opportunity_ids: List[str]) -> Dict[str, Dict[str, Any]]:
-    """Get match explanations for a list of opportunities from the matches table"""
-    try:
-        matches_table = dynamodb.Table(MATCHES_TABLE_NAME)
-        match_explanations = {}
 
-        # Batch get items from matches table
-        # DynamoDB batch_get_item supports up to 100 items per request
-        for i in range(0, len(opportunity_ids), 100):
-            batch_opportunity_ids = opportunity_ids[i:i+100]
-
-            # Build request items
-            request_items = []
-            for opportunity_id in batch_opportunity_ids:
-                if opportunity_id:  # Skip None/empty IDs
-                    request_items.append({
-                        'company_id': company_id,
-                        'opportunity_id': opportunity_id
-                    })
-
-            if not request_items:
-                continue
-
-            # Execute batch get
-            response = dynamodb.batch_get_item(
-                RequestItems={
-                    MATCHES_TABLE_NAME: {
-                        'Keys': request_items
-                    }
-                }
-            )
-
-            # Process results
-            items = response.get('Responses', {}).get(MATCHES_TABLE_NAME, [])
-            for item in items:
-                opportunity_id = item.get('opportunity_id')
-                if opportunity_id:
-                    # Convert DynamoDB types and extract match explanation fields
-                    match_explanation = json.loads(json.dumps(item, default=decimal_default))
-                    # Remove keys that aren't part of the match explanation
-                    match_explanation.pop('company_id', None)
-                    match_explanation.pop('opportunity_id', None)
-                    match_explanations[opportunity_id] = match_explanation
-
-        return match_explanations
-
-    except Exception as e:
-        logger.error(f"Error getting match explanations: {str(e)}")
-        return {}
-
-def add_filter(current_filter, new_condition, attr_names, attr_values, new_names, new_values):
-    """Helper to build DynamoDB filter expressions"""
-    attr_names.update(new_names)
-    attr_values.update(new_values)
-
-    if current_filter:
-        return f"{current_filter} AND {new_condition}"
-    return new_condition
 
 def is_opportunity_expired(response_deadline: str) -> bool:
     """Check if opportunity response deadline has passed"""
