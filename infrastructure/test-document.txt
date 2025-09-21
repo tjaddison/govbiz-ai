@@ -1,0 +1,15 @@
+Test Document for PyMuPDF Processing
+
+This document should be processed with PyMuPDF 1.24.13 and python-docx 1.2.0
+
+Company: Test Company Inc.
+Capability: Software Development Services
+NAICS Code: 541511
+
+This is a test to verify that the new document processing libraries are working correctly after deployment.
+The Lambda functions should now use:
+- PyMuPDF 1.24.13 for PDF processing
+- python-docx 1.2.0 for DOCX processing
+- Amazon Textract as fallback for both
+
+Previous processing attempts failed with "PyMuPDF not available" errors, which should now be resolved.

@@ -53,6 +53,53 @@ HIGH_VALUE_INDICATORS = {
     'renewable', 'option years', 'base plus options'
 }
 
+# Industry sector mapping for incompatible matches
+INDUSTRY_SECTORS = {
+    # Healthcare & Medical
+    '621': 'Healthcare Services',
+    '622': 'Hospitals',
+    '623': 'Nursing and Residential Care',
+    '624': 'Social Assistance',
+
+    # Information Technology
+    '541511': 'IT Consulting',
+    '541512': 'Computer Systems Design',
+    '541513': 'IT Facilities Management',
+    '541519': 'Other Computer Related Services',
+    '518': 'Information Technology',
+
+    # Manufacturing - Incompatible with Healthcare
+    '336': 'Transportation Equipment Manufacturing',
+    '333': 'Machinery Manufacturing',
+    '332': 'Fabricated Metal Products',
+    '331': 'Primary Metal Manufacturing',
+
+    # Professional Services
+    '541': 'Professional Services',
+    '561': 'Administrative Support Services',
+
+    # Construction
+    '236': 'Construction of Buildings',
+    '237': 'Heavy Construction',
+    '238': 'Specialty Trade Contractors'
+}
+
+# Define incompatible industry combinations
+INCOMPATIBLE_INDUSTRIES = {
+    # Healthcare companies should not match manufacturing
+    ('Healthcare', 'Manufacturing'): True,
+    ('Medical', 'Manufacturing'): True,
+    ('Healthcare IT', 'Manufacturing'): True,
+
+    # IT companies should not match pure manufacturing
+    ('IT', 'Heavy Manufacturing'): True,
+    ('Software', 'Manufacturing'): True,
+
+    # Services should not match manufacturing hardware
+    ('Services', 'Aircraft Parts'): True,
+    ('Services', 'Mechanical Components'): True,
+}
+
 
 class QuickFilter:
     """Ultra-fast pre-screening filter for opportunity matching"""
@@ -132,6 +179,9 @@ class QuickFilter:
 
             # 8. Response Deadline Check
             checks['deadline_feasible'] = self._check_response_deadline(opportunity)
+
+            # 9. Industry Compatibility Check
+            checks['industry_compatible'] = self._check_industry_compatibility(opportunity, company_profile)
 
             return checks
 
@@ -489,6 +539,98 @@ class QuickFilter:
             logger.warning(f"Error checking response deadline: {str(e)}")
             return {'passed': True, 'score': 1.0, 'details': 'Unable to verify deadline'}
 
+    def _check_industry_compatibility(self, opportunity: Dict, company_profile: Dict) -> Dict:
+        """Check if company industry is compatible with opportunity type"""
+        try:
+            # Get opportunity NAICS code and title/description
+            opp_naics = str(opportunity.get('NaicsCode', opportunity.get('naics_code', ''))).strip()
+            opp_title = opportunity.get('title', '').upper()
+            opp_desc = opportunity.get('description', '').upper()
+
+            # Get company industry and NAICS codes
+            company_industry = company_profile.get('industry', '').upper()
+            company_naics = company_profile.get('naics_codes', [])
+
+            # Convert DynamoDB format to list if needed
+            if isinstance(company_naics, dict) and 'L' in company_naics:
+                company_naics = [item['S'] for item in company_naics['L']]
+            elif not isinstance(company_naics, list):
+                company_naics = [str(company_naics)] if company_naics else []
+
+            # Quick checks for obvious incompatibilities
+            healthcare_keywords = ['MEDICAL', 'HEALTHCARE', 'HOSPITAL', 'HEALTH', 'PACS', 'RECORDS']
+            manufacturing_keywords = ['AIRCRAFT', 'CYLINDER', 'DIAPHRAGM', 'ASSEMBLY', 'COMPONENT', 'PART']
+
+            # Check if company is healthcare-focused
+            is_healthcare_company = (
+                any(keyword in company_industry for keyword in healthcare_keywords) or
+                any(naics.startswith('621') or naics.startswith('622') for naics in company_naics)
+            )
+
+            # Check if opportunity is manufacturing-focused
+            is_manufacturing_opportunity = (
+                any(keyword in opp_title or keyword in opp_desc for keyword in manufacturing_keywords) or
+                (opp_naics and (opp_naics.startswith('336') or opp_naics.startswith('333') or opp_naics.startswith('332')))
+            )
+
+            # Healthcare companies should not match manufacturing opportunities
+            if is_healthcare_company and is_manufacturing_opportunity:
+                return {
+                    'passed': False,
+                    'score': 0.0,
+                    'details': f'Healthcare company incompatible with manufacturing opportunity ({opp_title[:50]}...)'
+                }
+
+            # Check for IT services companies matching pure manufacturing
+            is_it_company = (
+                'IT' in company_industry or 'TECHNOLOGY' in company_industry or
+                any(naics.startswith('541') for naics in company_naics)
+            )
+
+            # Pure manufacturing hardware incompatible with IT services
+            if is_it_company and is_manufacturing_opportunity:
+                # Allow if it's IT-related manufacturing (software, systems, etc.)
+                it_manufacturing_keywords = ['SOFTWARE', 'SYSTEM', 'NETWORK', 'DATABASE', 'COMPUTER']
+                has_it_context = any(keyword in opp_title or keyword in opp_desc for keyword in it_manufacturing_keywords)
+
+                if not has_it_context:
+                    return {
+                        'passed': False,
+                        'score': 0.2,
+                        'details': f'IT services company unlikely match for pure manufacturing ({opp_title[:50]}...)'
+                    }
+
+            # Check NAICS sector alignment
+            if opp_naics and company_naics:
+                # Get 2-digit sector codes
+                opp_sector = opp_naics[:2] if len(opp_naics) >= 2 else ''
+                company_sectors = [naics[:2] for naics in company_naics if len(naics) >= 2]
+
+                # Major sector mismatches
+                manufacturing_sectors = ['33', '31', '32']  # Manufacturing sectors
+                service_sectors = ['54', '56', '62', '51']  # Service sectors
+
+                opp_is_manufacturing = opp_sector in manufacturing_sectors
+                company_is_services = any(sector in service_sectors for sector in company_sectors)
+
+                if opp_is_manufacturing and company_is_services and not has_it_context:
+                    return {
+                        'passed': False,
+                        'score': 0.1,
+                        'details': f'Service company and manufacturing opportunity sector mismatch'
+                    }
+
+            # If we get here, industry compatibility is acceptable
+            return {
+                'passed': True,
+                'score': 1.0,
+                'details': 'Industry compatibility acceptable'
+            }
+
+        except Exception as e:
+            logger.warning(f"Error checking industry compatibility: {str(e)}")
+            return {'passed': True, 'score': 0.8, 'details': 'Unable to verify industry compatibility'}
+
     def _is_federal_opportunity(self, opportunity: Dict) -> bool:
         """Check if this is a federal opportunity"""
         try:
@@ -516,14 +658,15 @@ class QuickFilter:
 
             # Define check weights
             check_weights = {
-                'active_status': 0.20,      # Critical - must be active
-                'set_aside_eligible': 0.20,  # Critical - must be eligible
-                'exclusion_check': 0.20,    # Critical - must not have exclusions
-                'naics_alignment': 0.15,    # Important
-                'keyword_match': 0.10,      # Moderate
-                'geographic_eligible': 0.05, # Low - often flexible
-                'size_compatibility': 0.05,  # Low - can partner
-                'deadline_feasible': 0.05   # Low - can be verified later
+                'active_status': 0.18,      # Critical - must be active
+                'set_aside_eligible': 0.18,  # Critical - must be eligible
+                'exclusion_check': 0.18,    # Critical - must not have exclusions
+                'industry_compatible': 0.18, # Critical - industry must be compatible
+                'naics_alignment': 0.12,    # Important
+                'keyword_match': 0.08,      # Moderate
+                'geographic_eligible': 0.04, # Low - often flexible
+                'size_compatibility': 0.02,  # Low - can partner
+                'deadline_feasible': 0.02   # Low - can be verified later
             }
 
             # Process each check
@@ -544,7 +687,7 @@ class QuickFilter:
                         filter_result['fail_reasons'].append(check_result.get('details', f"{check_name} failed"))
 
                     # Critical check failures
-                    if check_name in ['active_status', 'set_aside_eligible', 'exclusion_check'] and not passed:
+                    if check_name in ['active_status', 'set_aside_eligible', 'exclusion_check', 'industry_compatible'] and not passed:
                         filter_result['is_potential_match'] = False
                         filter_result['filter_score'] = total_score / total_weight if total_weight > 0 else 0.0
                         return filter_result

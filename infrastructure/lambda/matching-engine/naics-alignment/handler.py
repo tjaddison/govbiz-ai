@@ -242,6 +242,10 @@ class NAICSAlignmentScorer:
 
             if not opp_naics or not company_naics_list:
                 logger.warning("Missing NAICS codes for alignment calculation")
+                # Try industry-based fallback if possible
+                fallback_score = self._calculate_industry_fallback(opportunity, company_profile)
+                if fallback_score > 0:
+                    return self._create_fallback_score(fallback_score, "Industry-based alignment")
                 return self._create_empty_score()
 
             # Calculate alignment for each company NAICS against opportunity NAICS
@@ -312,7 +316,14 @@ class NAICSAlignmentScorer:
             for field in naics_fields:
                 naics_data = company_profile.get(field)
                 if naics_data:
-                    if isinstance(naics_data, list):
+                    # Handle DynamoDB format
+                    if isinstance(naics_data, dict) and 'L' in naics_data:
+                        for item in naics_data['L']:
+                            if isinstance(item, dict) and 'S' in item:
+                                naics_str = str(item['S']).strip()
+                                if naics_str and len(naics_str) >= 2:
+                                    naics_list.append(naics_str)
+                    elif isinstance(naics_data, list):
                         for naics in naics_data:
                             naics_str = str(naics).strip()
                             if naics_str and len(naics_str) >= 2:
@@ -777,6 +788,77 @@ class NAICSAlignmentScorer:
             'processing_time_ms': 0.0,
             'status': 'error',
             'error_message': error_message
+        }
+
+    def _calculate_industry_fallback(self, opportunity: Dict, company_profile: Dict) -> float:
+        """Calculate industry-based alignment when NAICS codes are missing"""
+        try:
+            # Get opportunity description and title
+            opp_text = ' '.join([
+                opportunity.get('title', ''),
+                opportunity.get('description', '')
+            ]).upper()
+
+            # Get company industry and capability statement
+            company_industry = company_profile.get('industry', '').upper()
+            capability_statement = company_profile.get('capability_statement', '').upper()
+
+            # Healthcare-related keywords
+            healthcare_keywords = ['MEDICAL', 'HEALTHCARE', 'HOSPITAL', 'HEALTH', 'PACS', 'PATIENT', 'CLINICAL']
+
+            # IT-related keywords
+            it_keywords = ['SOFTWARE', 'SYSTEM', 'NETWORK', 'DATABASE', 'COMPUTER', 'TECHNOLOGY', 'IT']
+
+            # Manufacturing keywords
+            manufacturing_keywords = ['AIRCRAFT', 'CYLINDER', 'ASSEMBLY', 'COMPONENT', 'PART', 'MANUFACTURING']
+
+            # Check for healthcare alignment
+            opp_is_healthcare = any(keyword in opp_text for keyword in healthcare_keywords)
+            company_is_healthcare = (
+                any(keyword in company_industry for keyword in healthcare_keywords) or
+                any(keyword in capability_statement for keyword in healthcare_keywords)
+            )
+
+            if opp_is_healthcare and company_is_healthcare:
+                return 0.6  # Good industry match
+
+            # Check for IT alignment
+            opp_is_it = any(keyword in opp_text for keyword in it_keywords)
+            company_is_it = (
+                any(keyword in company_industry for keyword in it_keywords) or
+                any(keyword in capability_statement for keyword in it_keywords)
+            )
+
+            if opp_is_it and company_is_it:
+                return 0.5  # Moderate industry match
+
+            # Check for mismatches (healthcare vs manufacturing)
+            opp_is_manufacturing = any(keyword in opp_text for keyword in manufacturing_keywords)
+
+            if company_is_healthcare and opp_is_manufacturing:
+                return 0.0  # Clear mismatch
+
+            # Default to low but non-zero score if no clear mismatch
+            return 0.2
+
+        except Exception as e:
+            logger.error(f"Error calculating industry fallback: {str(e)}")
+            return 0.0
+
+    def _create_fallback_score(self, score: float, reason: str) -> Dict:
+        """Create fallback NAICS alignment score structure"""
+        return {
+            'primary_alignment': {'score': score, 'match_level': 'industry_fallback', 'details': reason},
+            'all_alignments': [],
+            'overall_score': score,
+            'match_level': 'industry_fallback',
+            'industry_compatibility': {},
+            'set_aside_compatibility': {},
+            'government_readiness': {},
+            'diversification_analysis': {},
+            'recommendations': [f"Industry-based alignment used due to missing NAICS codes"],
+            'processing_time_ms': 0.0,
+            'status': 'fallback_used'
         }
 
 

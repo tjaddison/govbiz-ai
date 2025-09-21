@@ -43,6 +43,7 @@ export class InfrastructureStack extends cdk.Stack {
   // public webSocketApi: apigatewayv2.WebSocketApi;
   // public connectionsTable: dynamodb.Table;
   public readonly kmsKey: kms.Key;
+  public enhancedProcessingStateMachine: stepfunctions.StateMachine;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -1092,14 +1093,7 @@ export class InfrastructureStack extends cdk.Stack {
       // VPC removed for cost optimization
     };
 
-    // 1. Text Extraction Function (PyMuPDF)
-    const textExtractionFunction = new lambda.Function(this, 'govbizai-text-extraction', {
-      functionName: 'govbizai-text-extraction',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/document-processing/text-extraction')),
-      handler: 'handler.lambda_handler',
-      description: 'Extract text from PDF documents using PyMuPDF with Textract fallback',
-      ...documentProcessingFunctionProps,
-    });
+    // 1. Text Extraction Function (PyMuPDF) - Now defined with SAM.gov functions
 
     // 2. Textract Processor Function
     const textractProcessorFunction = new lambda.Function(this, 'govbizai-textract-processor', {
@@ -1141,7 +1135,7 @@ export class InfrastructureStack extends cdk.Stack {
       ...documentProcessingFunctionProps,
       environment: {
         ...documentProcessingFunctionProps.environment,
-        TEXT_EXTRACTION_FUNCTION: textExtractionFunction.functionName,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
       },
     });
 
@@ -1156,7 +1150,7 @@ export class InfrastructureStack extends cdk.Stack {
       environment: {
         ...documentProcessingFunctionProps.environment,
         FILE_HANDLERS_FUNCTION: fileHandlersFunction.functionName,
-        TEXT_EXTRACTION_FUNCTION: textExtractionFunction.functionName,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
         TEXTRACT_PROCESSOR_FUNCTION: textractProcessorFunction.functionName,
         TEXT_CLEANER_FUNCTION: textCleanerFunction.functionName,
         DOCUMENT_CHUNKER_FUNCTION: documentChunkerFunction.functionName,
@@ -1165,7 +1159,6 @@ export class InfrastructureStack extends cdk.Stack {
 
     // Grant S3 permissions to all document processing functions
     const documentProcessingFunctions = [
-      textExtractionFunction,
       textractProcessorFunction,
       textCleanerFunction,
       documentChunkerFunction,
@@ -1198,14 +1191,12 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     // Grant Lambda invoke permissions to the unified processor
-    textExtractionFunction.grantInvoke(unifiedProcessorFunction);
     textractProcessorFunction.grantInvoke(unifiedProcessorFunction);
     textCleanerFunction.grantInvoke(unifiedProcessorFunction);
     documentChunkerFunction.grantInvoke(unifiedProcessorFunction);
     fileHandlersFunction.grantInvoke(unifiedProcessorFunction);
 
-    // Grant cross-function invoke permission for file handlers
-    textExtractionFunction.grantInvoke(fileHandlersFunction);
+    // Note: textExtractionFunction permissions are handled in SAM.gov section
 
     // Add S3 trigger for automatic processing (optional)
     // Uncomment to enable automatic processing when files are uploaded
@@ -1221,11 +1212,7 @@ export class InfrastructureStack extends cdk.Stack {
     */
 
     // Output Lambda function ARNs
-    new cdk.CfnOutput(this, 'TextExtractionFunctionArn', {
-      value: textExtractionFunction.functionArn,
-      description: 'ARN of the Text Extraction Lambda function',
-      exportName: 'govbizai-text-extraction-function-arn',
-    });
+    // TextExtractionFunctionArn output moved to SAM.gov section
 
     new cdk.CfnOutput(this, 'TextractProcessorFunctionArn', {
       value: textractProcessorFunction.functionArn,
@@ -1540,10 +1527,35 @@ export class InfrastructureStack extends cdk.Stack {
         EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
         OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
         PROCESSING_QUEUE_URL: opportunityProcessingQueue.queueUrl,
+        TEXT_EXTRACTION_FUNCTION: 'govbizai-text-extraction',
       },
       // VPC removed for cost optimization
       // Note: Dependencies will be bundled automatically from requirements.txt
     };
+
+    // Text Extraction Function (used by SAM.gov processing)
+    const textExtractionFunction = new lambda.Function(this, 'govbizai-text-extraction', {
+      functionName: 'govbizai-text-extraction',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/text-extraction'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
+      handler: 'handler.lambda_handler',
+      description: 'Extract text from PDF documents using PyMuPDF with Textract fallback',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 2048,
+      environment: {
+        TEMP_PROCESSING_BUCKET: this.tempProcessingBucket.bucketName,
+        PROCESSED_DOCUMENTS_BUCKET: this.processedDocumentsBucket.bucketName,
+        TEXTRACT_RESULTS_BUCKET: this.tempProcessingBucket.bucketName,
+      },
+    });
 
     // 1. CSV Download and Processing Function
     const csvProcessorFunction = new lambda.Function(this, 'govbizai-csv-processor', {
@@ -1633,6 +1645,7 @@ export class InfrastructureStack extends cdk.Stack {
       opportunityProcessorFunction,
       dataRetentionFunction,
       samgovOrchestratorFunction,
+      textExtractionFunction,
     ];
 
     samgovFunctions.forEach(func => {
@@ -1667,6 +1680,25 @@ export class InfrastructureStack extends cdk.Stack {
     samgovApiClientFunction.grantInvoke(samgovOrchestratorFunction);
     attachmentDownloaderFunction.grantInvoke(samgovOrchestratorFunction);
     opportunityProcessorFunction.grantInvoke(samgovOrchestratorFunction);
+
+    // Grant text extraction function invoke permission to opportunity processor
+    textExtractionFunction.grantInvoke(opportunityProcessorFunction);
+
+    // Grant additional permissions for text extraction function
+    this.tempProcessingBucket.grantReadWrite(textExtractionFunction);
+    this.processedDocumentsBucket.grantReadWrite(textExtractionFunction);
+
+    // Add Textract permissions for text extraction function
+    textExtractionFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'textract:StartDocumentTextDetection',
+        'textract:GetDocumentTextDetection',
+        'textract:AnalyzeDocument',
+        'textract:DetectDocumentText',
+      ],
+      resources: ['*'],
+    }));
 
     // Create Step Functions State Machine for distributed processing
     const processingStateMachine = this.createProcessingStateMachine(
@@ -1712,6 +1744,12 @@ export class InfrastructureStack extends cdk.Stack {
     dataRetentionRule.addTarget(new targets.LambdaFunction(dataRetentionFunction));
 
     // Output important ARNs and names
+    new cdk.CfnOutput(this, 'TextExtractionFunctionArn', {
+      value: textExtractionFunction.functionArn,
+      description: 'ARN of the Text Extraction Lambda function',
+      exportName: 'govbizai-text-extraction-function-arn',
+    });
+
     new cdk.CfnOutput(this, 'CsvProcessorFunctionArn', {
       value: csvProcessorFunction.functionArn,
       description: 'ARN of the CSV Processor Lambda function',
@@ -2608,7 +2646,7 @@ export class InfrastructureStack extends cdk.Stack {
     }));
 
     // Create enhanced Step Functions Express workflow
-    const enhancedProcessingStateMachine = this.createEnhancedProcessingStateMachine(
+    this.enhancedProcessingStateMachine = this.createEnhancedProcessingStateMachine(
       batchOptimizerFunction,
       batchCoordinatorFunction,
       progressTrackerFunction,
@@ -2629,7 +2667,7 @@ export class InfrastructureStack extends cdk.Stack {
       enabled: true,
     });
 
-    enhancedNightlyRule.addTarget(new targets.SfnStateMachine(enhancedProcessingStateMachine, {
+    enhancedNightlyRule.addTarget(new targets.SfnStateMachine(this.enhancedProcessingStateMachine, {
       input: events.RuleTargetInput.fromObject({
         processing_type: 'nightly_batch',
         enable_optimization: true,
@@ -2720,7 +2758,7 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'EnhancedProcessingStateMachineArn', {
-      value: enhancedProcessingStateMachine.stateMachineArn,
+      value: this.enhancedProcessingStateMachine.stateMachineArn,
       description: 'ARN of the Enhanced Processing Step Functions State Machine',
       exportName: 'govbizai-enhanced-processing-state-machine-arn',
     });

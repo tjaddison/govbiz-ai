@@ -67,6 +67,7 @@ new ApiStack(app, 'GovBizAIApiStack', {
   profileEmbeddingQueueUrl: processingStack.profileEmbeddingQueue.queueUrl,
   webScrapingQueueUrl: processingStack.webScrapingQueue.queueUrl,
   documentProcessingQueueUrl: processingStack.documentProcessingQueue.queueUrl,
+  processingStateMachineArn: infraStack.enhancedProcessingStateMachine.stateMachineArn,
 });
 
 // Deploy web application

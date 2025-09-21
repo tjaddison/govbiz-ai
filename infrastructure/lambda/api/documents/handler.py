@@ -221,18 +221,39 @@ def handle_upload_completion(company_id: str, document_id: str, body: Dict[str, 
         if document_index is None:
             return create_error_response(404, 'DOCUMENT_NOT_FOUND', 'Document not found')
 
-        # Update the specific document's status to 'uploaded'
+        # Get actual file size from S3
+        current_document = documents[document_index]
+        s3_key = current_document.get('s3_key')
+        file_size = None
+
+        if s3_key:
+            try:
+                head_response = s3_client.head_object(Bucket=RAW_DOCUMENTS_BUCKET, Key=s3_key)
+                file_size = head_response['ContentLength']
+                logger.info(f"Retrieved file size from S3: {file_size} bytes for key: {s3_key}")
+            except Exception as e:
+                logger.warning(f"Could not get file size from S3: {str(e)}")
+                file_size = 0
+
+        # Update the specific document's status to 'uploaded' and add file size
+        update_expression = f"SET #docs[{document_index}].#status = :status, #docs[{document_index}].updated_at = :updated_at"
+        expression_attribute_values = {
+            ':status': 'uploaded',
+            ':updated_at': datetime.utcnow().isoformat() + 'Z'
+        }
+
+        if file_size is not None:
+            update_expression += f", #docs[{document_index}].file_size = :file_size"
+            expression_attribute_values[':file_size'] = file_size
+
         companies_table.update_item(
             Key={'company_id': company_id},
-            UpdateExpression=f"SET #docs[{document_index}].#status = :status, #docs[{document_index}].updated_at = :updated_at",
+            UpdateExpression=update_expression,
             ExpressionAttributeNames={
                 '#docs': 'documents',
                 '#status': 'status'
             },
-            ExpressionAttributeValues={
-                ':status': 'uploaded',
-                ':updated_at': datetime.utcnow().isoformat() + 'Z'
-            },
+            ExpressionAttributeValues=expression_attribute_values,
             ConditionExpression="attribute_exists(documents)"
         )
 
@@ -242,6 +263,8 @@ def handle_upload_completion(company_id: str, document_id: str, body: Dict[str, 
         # Update the document in our local copy and return it
         documents[document_index]['status'] = 'uploaded'
         documents[document_index]['updated_at'] = datetime.utcnow().isoformat() + 'Z'
+        if file_size is not None:
+            documents[document_index]['file_size'] = file_size
 
         return {
             'statusCode': 200,
@@ -501,6 +524,7 @@ def handle_delete_document(company_id: str, document_id: str) -> Dict[str, Any]:
             'statusCode': 200,
             'headers': get_cors_headers(),
             'body': json.dumps({
+                'success': True,
                 'message': 'Document deleted successfully',
                 'document_id': document_id
             })
@@ -589,7 +613,7 @@ def trigger_document_processing(company_id: str, document_id: str):
             message_body = {
                 'company_id': company_id,
                 'document_id': document_id,
-                'bucket': document.get('s3_key', '').split('/')[0] if document.get('s3_key') else PROCESSED_DOCUMENTS_BUCKET,
+                'bucket': RAW_DOCUMENTS_BUCKET,  # Use the correct bucket name from environment
                 'key': document.get('s3_key', ''),
                 'filename': document.get('filename', ''),
                 'category': document.get('category', 'other'),

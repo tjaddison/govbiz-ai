@@ -1,0 +1,1 @@
+{"statusCode": 500, "body": "{\"error\": \"Text extraction failed\", \"message\": \"Missing required 'source_s3_uri' parameter\", \"source_s3_uri\": null}"}

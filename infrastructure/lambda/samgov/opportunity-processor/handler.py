@@ -142,11 +142,14 @@ def process_single_opportunity(notice_id: str, opportunity_data: Dict[str, Any],
         # Validate and process opportunity data
         processed_opportunity = validate_and_process_opportunity(opportunity_data)
 
-        # Generate text content for embedding
-        text_content = extract_text_content(processed_opportunity)
+        # Process attachments for text extraction
+        attachment_texts = process_attachments(notice_id, attachments_info)
+
+        # Generate text content for embedding (including attachments)
+        text_content = extract_text_content(processed_opportunity, attachment_texts)
 
         # Generate embeddings (with idempotency checks)
-        embedding_metadata = generate_and_store_embeddings(notice_id, text_content, processed_opportunity)
+        embedding_metadata = generate_and_store_embeddings(notice_id, text_content, processed_opportunity, attachment_texts)
 
         # Store opportunity in DynamoDB (upsert operation)
         store_opportunity_in_dynamodb(processed_opportunity, embedding_metadata, attachments_info)
@@ -287,13 +290,12 @@ def validate_and_process_opportunity(opportunity_data: Dict[str, Any]) -> Dict[s
     logger.info(f"Processed opportunity: {processed['notice_id']} - {processed['title']}")
     return processed
 
-def extract_text_content(opportunity: Dict[str, Any]) -> Dict[str, str]:
+def extract_text_content(opportunity: Dict[str, Any], attachment_texts: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     """Extract and organize text content for embedding generation."""
     logger.info("Extracting text content for embeddings")
 
-    content = {
-        # Main content (for primary embedding)
-        'main': f"""
+    # Base opportunity content
+    main_content = f"""
 Title: {opportunity.get('title', '')}
 Description: {opportunity.get('description', '')}
 Department: {opportunity.get('department', '')}
@@ -301,7 +303,23 @@ Office: {opportunity.get('office', '')}
 NAICS Code: {opportunity.get('naics_code', '')}
 Set Aside: {opportunity.get('set_aside', '')}
 Location: {opportunity.get('pop_city', '')}, {opportunity.get('pop_state', '')}
-""".strip(),
+""".strip()
+
+    # Add attachment content if available
+    attachment_content = ""
+    if attachment_texts and attachment_texts.get('total_text'):
+        attachment_content = f"\n\nAttachment Content:\n{attachment_texts['total_text']}"
+        logger.info(f"Added {len(attachment_texts['total_text'])} characters from {len(attachment_texts.get('successful', []))} attachments")
+
+    content = {
+        # Main content (for primary embedding) - includes attachments
+        'main': main_content + attachment_content,
+
+        # Opportunity-only content (for opportunity-specific matching)
+        'opportunity_only': main_content,
+
+        # Attachments-only content (for attachment-specific matching)
+        'attachments_only': attachment_texts.get('total_text', '') if attachment_texts else '',
 
         # Title only (for title-specific matching)
         'title': opportunity.get('title', ''),
@@ -325,7 +343,7 @@ Location: {opportunity.get('pop_city', '')}, {opportunity.get('pop_state', '')}
     logger.info(f"Extracted {len(content)} content segments for embedding")
     return content
 
-def generate_and_store_embeddings(notice_id: str, content: Dict[str, str], opportunity: Dict[str, Any]) -> Dict[str, Any]:
+def generate_and_store_embeddings(notice_id: str, content: Dict[str, str], opportunity: Dict[str, Any], attachment_texts: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Generate embeddings using Bedrock and store in S3."""
     logger.info(f"Generating embeddings for opportunity {notice_id}")
 
@@ -358,7 +376,45 @@ def generate_and_store_embeddings(notice_id: str, content: Dict[str, str], oppor
 
             logger.info(f"Generated and stored {content_type} embedding for {notice_id}")
 
-        logger.info(f"Generated {len(embedding_metadata['embedding_keys'])} embeddings for {notice_id}")
+        # Process attachment chunks for detailed embeddings
+        if attachment_texts and attachment_texts.get('combined_chunks'):
+            logger.info(f"Processing {len(attachment_texts['combined_chunks'])} attachment chunks for detailed embeddings")
+
+            chunk_embeddings = []
+            for chunk in attachment_texts['combined_chunks']:
+                try:
+                    chunk_text = chunk.get('text', '')
+                    chunk_id = chunk.get('chunk_id', 'unknown')
+
+                    if len(chunk_text.strip()) < 10:  # Skip very short chunks
+                        continue
+
+                    # Generate embedding for chunk
+                    chunk_embedding = generate_embedding(chunk_text)
+
+                    # Store chunk embedding
+                    chunk_s3_key = store_chunk_embedding(notice_id, chunk_id, chunk_embedding, chunk, opportunity)
+
+                    chunk_embeddings.append({
+                        'chunk_id': chunk_id,
+                        's3_key': chunk_s3_key,
+                        'text_length': len(chunk_text),
+                        'vector_length': len(chunk_embedding),
+                        'source_attachment': chunk.get('source_attachment', 'unknown'),
+                        'chunk_index': chunk.get('chunk_index', 0)
+                    })
+
+                    logger.debug(f"Generated embedding for chunk {chunk_id}")
+
+                except Exception as e:
+                    logger.error(f"Failed to generate embedding for chunk {chunk.get('chunk_id', 'unknown')}: {str(e)}")
+                    continue
+
+            # Add chunk embeddings to metadata
+            embedding_metadata['attachment_chunk_embeddings'] = chunk_embeddings
+            logger.info(f"Generated {len(chunk_embeddings)} chunk embeddings for attachments")
+
+        logger.info(f"Generated {len(embedding_metadata['embedding_keys'])} main embeddings and {len(embedding_metadata.get('attachment_chunk_embeddings', []))} chunk embeddings for {notice_id}")
         return embedding_metadata
 
     except Exception as e:
@@ -457,6 +513,79 @@ def store_embedding_vector(notice_id: str, content_type: str, embedding: List[fl
 
     except Exception as e:
         logger.error(f"Failed to store embedding: {str(e)}")
+        raise
+
+def store_chunk_embedding(notice_id: str, chunk_id: str, embedding: List[float], chunk: Dict[str, Any], opportunity: Dict[str, Any]) -> str:
+    """Store chunk embedding vector in S3."""
+    try:
+        # Use posted_date for consistent organization
+        posted_date = opportunity.get('posted_date', '')
+        if posted_date:
+            try:
+                parsed_date = datetime.strptime(posted_date, '%Y-%m-%d')
+                date_prefix = parsed_date.strftime('%Y-%m-%d')
+            except ValueError:
+                date_prefix = datetime.utcnow().strftime('%Y-%m-%d')
+        else:
+            date_prefix = datetime.utcnow().strftime('%Y-%m-%d')
+
+        # Create S3 key for chunk embedding
+        s3_key = f"chunk-embeddings/{date_prefix}/{notice_id}/{chunk_id}.json"
+
+        # Check if embedding already exists (idempotency)
+        try:
+            s3_client.head_object(Bucket=EMBEDDINGS_BUCKET, Key=s3_key)
+            logger.info(f"Chunk embedding already exists: {s3_key}")
+            return s3_key
+        except s3_client.exceptions.NoSuchKey:
+            pass  # Expected for new embeddings
+        except Exception as e:
+            logger.debug(f"S3 head_object check failed for chunk (expected): {str(e)}")
+            pass
+
+        # Prepare chunk embedding data
+        chunk_embedding_data = {
+            'notice_id': notice_id,
+            'chunk_id': chunk_id,
+            'embedding_vector': embedding,
+            'chunk_metadata': {
+                'text': chunk.get('text', ''),
+                'word_count': chunk.get('word_count', 0),
+                'chunk_index': chunk.get('chunk_index', 0),
+                'source_attachment': chunk.get('source_attachment', 'unknown'),
+                'start_word': chunk.get('start_word', 0),
+                'end_word': chunk.get('end_word', 0),
+                'total_chunks': chunk.get('metadata', {}).get('total_chunks', 1)
+            },
+            'opportunity_metadata': {
+                'title': opportunity.get('title'),
+                'naics_code': opportunity.get('naics_code'),
+                'set_aside': opportunity.get('set_aside'),
+                'department': opportunity.get('department'),
+                'posted_date': opportunity.get('posted_date'),
+                'archive_date': opportunity.get('archive_date'),
+                'pop_state': opportunity.get('pop_state'),
+                'pop_city': opportunity.get('pop_city')
+            },
+            'generated_at': datetime.utcnow().isoformat(),
+            'model_id': BEDROCK_MODEL_ID,
+            'dimensions': len(embedding)
+        }
+
+        # Store chunk embedding in S3
+        s3_client.put_object(
+            Bucket=EMBEDDINGS_BUCKET,
+            Key=s3_key,
+            Body=json.dumps(chunk_embedding_data).encode('utf-8'),
+            ContentType='application/json',
+            ServerSideEncryption='aws:kms'
+        )
+
+        logger.debug(f"Stored chunk embedding at: s3://{EMBEDDINGS_BUCKET}/{s3_key}")
+        return s3_key
+
+    except Exception as e:
+        logger.error(f"Failed to store chunk embedding: {str(e)}")
         raise
 
 def store_opportunity_in_dynamodb(opportunity: Dict[str, Any], embedding_metadata: Dict[str, Any], attachments_info: List[Dict[str, Any]]):
@@ -580,3 +709,143 @@ def update_vector_index(notice_id: str, opportunity: Dict[str, Any], embedding_m
         logger.error(f"Failed to update vector index for {notice_id}: {str(e)}")
         # Don't fail the entire processing if vector index update fails
         pass
+
+def process_attachments(notice_id: str, attachments_info: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Process attachments to extract text content."""
+    logger.info(f"Processing {len(attachments_info)} attachments for opportunity {notice_id}")
+
+    attachment_texts = {
+        'successful': [],
+        'failed': [],
+        'total_text': "",
+        'combined_chunks': []
+    }
+
+    if not attachments_info:
+        logger.info(f"No attachments to process for opportunity {notice_id}")
+        return attachment_texts
+
+    # Import lambda client here to avoid circular imports
+    lambda_client = boto3.client('lambda')
+    text_extraction_function = os.environ.get('TEXT_EXTRACTION_FUNCTION', 'govbizai-text-extraction')
+
+    for attachment in attachments_info:
+        try:
+            s3_location = attachment.get('s3_location')
+            filename = attachment.get('attachment', {}).get('name', 'unknown')
+
+            if not s3_location:
+                logger.warning(f"No S3 location found for attachment {filename}")
+                attachment_texts['failed'].append({
+                    'filename': filename,
+                    'error': 'No S3 location available'
+                })
+                continue
+
+            logger.info(f"Extracting text from attachment: {filename}")
+
+            # Call text extraction service
+            payload = {
+                'operation': 'extract_text',
+                'source_s3_uri': s3_location,
+                'notice_id': notice_id,
+                'filename': filename,
+                'attachment_metadata': attachment.get('attachment', {})
+            }
+
+            response = lambda_client.invoke(
+                FunctionName=text_extraction_function,
+                InvocationType='RequestResponse',
+                Payload=json.dumps(payload)
+            )
+
+            response_payload = json.loads(response['Payload'].read().decode('utf-8'))
+
+            if response_payload.get('statusCode') == 200:
+                body = json.loads(response_payload['body'])
+                attachment_texts['successful'].append({
+                    'filename': filename,
+                    'extraction_result': body,
+                    's3_location': s3_location
+                })
+                logger.info(f"Successfully extracted text from {filename}: {body.get('text_length', 0)} chars")
+            else:
+                error_body = json.loads(response_payload.get('body', '{}'))
+                error_msg = error_body.get('message', 'Unknown error')
+                attachment_texts['failed'].append({
+                    'filename': filename,
+                    'error': error_msg
+                })
+                logger.error(f"Text extraction failed for {filename}: {error_msg}")
+
+        except Exception as e:
+            logger.error(f"Error processing attachment {filename}: {str(e)}")
+            attachment_texts['failed'].append({
+                'filename': filename,
+                'error': str(e)
+            })
+
+    # Load extracted text content for immediate use
+    attachment_texts = load_attachment_text_content(notice_id, attachment_texts)
+
+    logger.info(f"Attachment processing complete: {len(attachment_texts['successful'])} successful, {len(attachment_texts['failed'])} failed")
+    return attachment_texts
+
+def load_attachment_text_content(notice_id: str, attachment_texts: Dict[str, Any]) -> Dict[str, Any]:
+    """Load the actual text content from successful extractions."""
+    combined_text_parts = []
+    all_chunks = []
+
+    for successful_extraction in attachment_texts['successful']:
+        try:
+            # Get the storage location from the extraction result
+            extraction_result = successful_extraction['extraction_result']
+            storage_location = extraction_result.get('storage_location')
+
+            if not storage_location:
+                logger.warning(f"No storage location in extraction result for {successful_extraction['filename']}")
+                continue
+
+            # Parse S3 URI
+            if storage_location.startswith('s3://'):
+                parts = storage_location[5:].split('/', 1)
+                if len(parts) == 2:
+                    bucket, key = parts
+
+                    # Load the extracted text
+                    response = s3_client.get_object(Bucket=bucket, Key=key)
+                    text_data = json.loads(response['Body'].read().decode('utf-8'))
+
+                    # Extract full text
+                    full_text = text_data.get('text_content', {}).get('full_text', '')
+                    if full_text:
+                        combined_text_parts.append(f"\n--- Content from {successful_extraction['filename']} ---\n")
+                        combined_text_parts.append(full_text)
+                        combined_text_parts.append(f"\n--- End of {successful_extraction['filename']} ---\n")
+
+                    # Also load chunks if available
+                    chunks_key = key.replace('/full_text_', '/chunks_')
+                    try:
+                        chunks_response = s3_client.get_object(Bucket=bucket, Key=chunks_key)
+                        chunks_data = json.loads(chunks_response['Body'].read().decode('utf-8'))
+                        chunks = chunks_data.get('chunks', [])
+
+                        # Add filename prefix to chunk IDs for uniqueness
+                        for chunk in chunks:
+                            chunk['chunk_id'] = f"{notice_id}_{chunk['chunk_id']}"
+                            chunk['source_attachment'] = successful_extraction['filename']
+
+                        all_chunks.extend(chunks)
+
+                    except Exception as e:
+                        logger.warning(f"Could not load chunks for {successful_extraction['filename']}: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error loading text content for {successful_extraction['filename']}: {str(e)}")
+
+    # Combine all text
+    attachment_texts['total_text'] = '\n'.join(combined_text_parts)
+    attachment_texts['combined_chunks'] = all_chunks
+
+    logger.info(f"Loaded {len(combined_text_parts)} text sections and {len(all_chunks)} chunks from attachments")
+    return attachment_texts

@@ -25,6 +25,7 @@ export interface ApiStackProps extends cdk.StackProps {
   profileEmbeddingQueueUrl?: string;
   webScrapingQueueUrl?: string;
   documentProcessingQueueUrl?: string;
+  processingStateMachineArn?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -135,6 +136,7 @@ export class ApiStack extends cdk.Stack {
         PROFILE_EMBEDDING_QUEUE_URL: props.profileEmbeddingQueueUrl || '',
         WEB_SCRAPING_QUEUE_URL: props.webScrapingQueueUrl || '',
         PROCESSING_QUEUE_URL: props.documentProcessingQueueUrl || '',
+        PROCESSING_STATE_MACHINE_ARN: props.processingStateMachineArn || '',
       },
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
@@ -175,6 +177,22 @@ export class ApiStack extends cdk.Stack {
         `arn:aws:sqs:${this.region}:${this.account}:govbizai-web-scraping-queue`,
       ],
     }));
+
+    // Grant Step Functions permissions for batch processing (for matches Lambda only)
+    if (name === 'matches' && props.processingStateMachineArn) {
+      lambdaFunction.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'states:StartExecution',
+          'states:DescribeExecution',
+          'states:ListExecutions',
+        ],
+        resources: [
+          props.processingStateMachineArn,
+          `${props.processingStateMachineArn}:*`,
+        ],
+      }));
+    }
 
     return lambdaFunction;
   }
@@ -277,23 +295,27 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
-    // Opportunities endpoints
-    const opportunitiesResource = apiResource.addResource('opportunities');
+    // Opportunities endpoints (public access for demo)
+    const opportunitiesResource = apiResource.addResource('opportunities', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
     opportunitiesResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
+      apiKeyRequired: false,
     });
 
     const opportunityIdResource = opportunitiesResource.addResource('{id}');
     opportunityIdResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
+      apiKeyRequired: false,
     });
 
     const attachmentsResource = opportunityIdResource.addResource('attachments');
     attachmentsResource.addMethod('GET', new apigateway.LambdaIntegration(opportunitiesLambda), {
-      authorizer,
-      authorizationType: apigateway.AuthorizationType.COGNITO,
+      apiKeyRequired: false,
     });
 
     const feedbackResource = opportunityIdResource.addResource('feedback');
@@ -336,6 +358,27 @@ export class ApiStack extends cdk.Stack {
 
     const matchStatsResource = matchesResource.addResource('stats');
     matchStatsResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Batch matching endpoints
+    const batchResource = matchesResource.addResource('batch');
+    batchResource.addMethod('POST', new apigateway.LambdaIntegration(matchesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    const batchIdResource = batchResource.addResource('{id}');
+    const batchStatusResource = batchIdResource.addResource('status');
+    batchStatusResource.addMethod('GET', new apigateway.LambdaIntegration(matchesLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Manual matching endpoint
+    const manualResource = matchesResource.addResource('manual');
+    manualResource.addMethod('POST', new apigateway.LambdaIntegration(matchesLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

@@ -15,8 +15,10 @@ Key Features:
 
 import json
 import boto3
+from boto3.dynamodb.conditions import Key
 import asyncio
 import logging
+import os
 from typing import Dict, List, Tuple, Optional
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -34,6 +36,7 @@ s3_client = boto3.client('s3')
 
 # Environment variables
 CACHE_TABLE = os.environ.get('CACHE_TABLE', 'govbizai-match-cache')
+MATCHES_TABLE = os.environ.get('MATCHES_TABLE', 'govbizai-matches')
 CACHE_TTL = 86400  # 24 hours
 
 # Component weights (configurable)
@@ -84,6 +87,7 @@ class MatchOrchestrator:
 
     def __init__(self):
         self.cache_table = dynamodb.Table(CACHE_TABLE) if CACHE_TABLE else None
+        self.matches_table = dynamodb.Table(MATCHES_TABLE) if MATCHES_TABLE else None
         self.weights = DEFAULT_WEIGHTS.copy()
         self.max_workers = 8  # Concurrent component executions
 
@@ -154,6 +158,9 @@ class MatchOrchestrator:
             # Cache the result
             if use_cache and self.cache_table:
                 await self._cache_result(cache_key, match_result)
+
+            # Store the result in matches table for persistent access
+            await self._store_match_result(match_result)
 
             logger.info(f"Match calculation completed in {processing_time:.3f}s")
             return match_result
@@ -530,6 +537,75 @@ class MatchOrchestrator:
 
         except Exception as e:
             logger.error(f"Error caching result: {str(e)}")
+
+    async def _store_match_result(self, match_result: MatchResult):
+        """Store the match result in the matches table"""
+        try:
+            if not self.matches_table:
+                logger.warning("Matches table not configured, skipping storage")
+                return
+
+            # Prepare the item for DynamoDB
+            item = {
+                'company_id': match_result.company_id,
+                'opportunity_id': match_result.opportunity_id,
+                'total_score': match_result.total_score,
+                'confidence_level': match_result.confidence_level,
+                'component_scores': match_result.component_scores,
+                'match_reasons': match_result.match_reasons,
+                'non_match_reasons': [],  # Can be derived from component analysis
+                'recommendations': match_result.recommendations,
+                'action_items': match_result.action_items,
+                'processing_time_ms': match_result.processing_time_ms,
+                'created_at': int(time.time()),
+                'updated_at': int(time.time())
+            }
+
+            # Store in matches table
+            self.matches_table.put_item(Item=item)
+            logger.info(f"Stored match result for {match_result.opportunity_id} - {match_result.company_id}")
+
+        except Exception as e:
+            logger.error(f"Error storing match result: {str(e)}")
+
+    async def _cleanup_old_matches(self, company_id: str, cutoff_timestamp: int):
+        """Remove old match results for a company"""
+        try:
+            if not self.matches_table:
+                logger.warning("Matches table not configured, skipping cleanup")
+                return
+
+            # Query all matches for this company
+            response = self.matches_table.query(
+                KeyConditionExpression=Key('company_id').eq(company_id)
+            )
+
+            items_to_delete = []
+            for item in response.get('Items', []):
+                created_at = item.get('created_at', 0)
+                if created_at < cutoff_timestamp:
+                    items_to_delete.append({
+                        'company_id': item['company_id'],
+                        'opportunity_id': item['opportunity_id']
+                    })
+
+            # Delete old items in batches
+            if items_to_delete:
+                # DynamoDB batch delete supports up to 25 items per request
+                for i in range(0, len(items_to_delete), 25):
+                    batch = items_to_delete[i:i+25]
+                    delete_requests = [{'DeleteRequest': {'Key': item}} for item in batch]
+
+                    self.matches_table.meta.client.batch_write_item(
+                        RequestItems={
+                            MATCHES_TABLE: delete_requests
+                        }
+                    )
+
+                logger.info(f"Deleted {len(items_to_delete)} old match results for company {company_id}")
+
+        except Exception as e:
+            logger.error(f"Error cleaning up old matches: {str(e)}")
 
     def _create_zero_score_result(self, opportunity: Dict, company_profile: Dict, start_time: float) -> MatchResult:
         """Create a zero score result for failed quick filter"""
