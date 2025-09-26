@@ -172,16 +172,7 @@ def handle_list_matches(company_id: str, query_params: Dict[str, str]) -> Dict[s
                 'tenant_id': item.get('tenant_id'),
                 'total_score': float(item.get('total_score', 0)),
                 'confidence_level': item.get('confidence_level', 'LOW'),
-                'component_scores': {
-                    'semantic_similarity': float(item.get('component_scores', {}).get('semantic_similarity', 0)),
-                    'keyword_match': float(item.get('component_scores', {}).get('keyword_matching', 0)),
-                    'naics_alignment': float(item.get('component_scores', {}).get('naics_alignment', 0)),
-                    'past_performance': float(item.get('component_scores', {}).get('past_performance', 0)),
-                    'certification_bonus': float(item.get('component_scores', {}).get('certification_bonus', 0)),
-                    'geographic_match': float(item.get('component_scores', {}).get('geographic_match', 0)),
-                    'capacity_fit': float(item.get('component_scores', {}).get('capacity_fit', 0)),
-                    'recency_factor': float(item.get('component_scores', {}).get('recency_factor', 0))
-                },
+                'component_scores': extract_component_scores(item.get('component_scores', {})),
                 'match_reasons': item.get('match_reasons', []),
                 'recommendations': item.get('recommendations', []),
                 'action_items': item.get('action_items', []),
@@ -554,6 +545,61 @@ def get_company_id_from_token(event: Dict[str, Any]) -> str:
     except Exception as e:
         logger.error(f"Error extracting company_id: {str(e)}")
         return None
+
+def extract_component_scores(component_scores: Dict) -> Dict[str, float]:
+    """Extract actual float scores from nested component score structure"""
+    try:
+        def get_score_value(component_data):
+            if isinstance(component_data, (int, float)):
+                return float(component_data)
+            elif isinstance(component_data, Decimal):
+                return float(component_data)
+            elif isinstance(component_data, dict):
+                # Try different score field names that might exist
+                for score_field in ['overall_score', 'score', 'weighted_average_similarity', 'primary_alignment']:
+                    if score_field in component_data:
+                        score_val = component_data[score_field]
+                        if isinstance(score_val, dict) and 'score' in score_val:
+                            # Handle nested score structures
+                            return float(score_val.get('score', 0))
+                        elif isinstance(score_val, (int, float, Decimal)):
+                            return float(score_val)
+                # If no specific score field found, return 0
+                return 0.0
+            else:
+                return 0.0
+
+        result = {}
+        component_mapping = {
+            'semantic_similarity': 'semantic_similarity',
+            'keyword_matching': 'keyword_match',
+            'naics_alignment': 'naics_alignment',
+            'past_performance': 'past_performance',
+            'certification_bonus': 'certification_bonus',
+            'geographic_match': 'geographic_match',
+            'capacity_fit': 'capacity_fit',
+            'recency_factor': 'recency_factor'
+        }
+
+        for db_key, api_key in component_mapping.items():
+            component_data = component_scores.get(db_key, {})
+            result[api_key] = get_score_value(component_data)
+
+        return result
+
+    except Exception as e:
+        logger.warning(f"Error extracting component scores: {str(e)}, falling back to zeros")
+        # Return default scores if extraction fails
+        return {
+            'semantic_similarity': 0.0,
+            'keyword_match': 0.0,
+            'naics_alignment': 0.0,
+            'past_performance': 0.0,
+            'certification_bonus': 0.0,
+            'geographic_match': 0.0,
+            'capacity_fit': 0.0,
+            'recency_factor': 0.0
+        }
 
 def decimal_default(obj):
     """JSON serializer for objects not serializable by default json code"""
