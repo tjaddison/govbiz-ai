@@ -268,7 +268,7 @@ def get_progress_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         context: Lambda context
 
     Returns:
-        Progress status information
+        Progress status information in Step Functions expected format
     """
     coordination_id = event.get('coordination_id')
     batch_id = event.get('batch_id')
@@ -290,12 +290,21 @@ def get_progress_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'Item' not in response:
                 return {
                     'statusCode': 404,
-                    'error': f"Batch progress not found: {batch_id}"
+                    'error': f"Batch progress not found: {batch_id}",
+                    'progress': {
+                        'is_complete': 'false',
+                        'failed_batches': 0
+                    }
                 }
 
+            batch_item = response['Item']
             return {
                 'statusCode': 200,
-                'batch_progress': response['Item']
+                'batch_progress': batch_item,
+                'progress': {
+                    'is_complete': 'true' if batch_item.get('status') == 'completed' else 'false',
+                    'failed_batches': 1 if batch_item.get('status') == 'failed' else 0
+                }
             }
 
         else:
@@ -308,7 +317,11 @@ def get_progress_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if 'Item' not in response:
                 return {
                     'statusCode': 404,
-                    'error': f"Coordination not found: {coordination_id}"
+                    'error': f"Coordination not found: {coordination_id}",
+                    'progress': {
+                        'is_complete': 'false',
+                        'failed_batches': 0
+                    }
                 }
 
             coordination_record = response['Item']
@@ -320,17 +333,37 @@ def get_progress_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ExpressionAttributeValues={':coord_id': coordination_id}
             )
 
+            # Determine if processing is complete and count failed batches
+            batch_items = batch_response['Items']
+            failed_batches = len([b for b in batch_items if b.get('status') == 'failed'])
+            completed_batches = len([b for b in batch_items if b.get('status') == 'completed'])
+            total_batches = len(batch_items)
+
+            # Processing is complete when all batches are either completed or failed
+            is_complete = (completed_batches + failed_batches) >= total_batches and total_batches > 0
+
             return {
                 'statusCode': 200,
                 'coordination_progress': coordination_record,
-                'batch_details': batch_response['Items']
+                'batch_details': batch_items,
+                'progress': {
+                    'is_complete': 'true' if is_complete else 'false',
+                    'failed_batches': failed_batches,
+                    'completed_batches': completed_batches,
+                    'total_batches': total_batches,
+                    'progress_percentage': float(coordination_record.get('progress_percentage', 0))
+                }
             }
 
     except Exception as e:
         logger.error(f"Failed to get progress status: {str(e)}")
         return {
             'statusCode': 500,
-            'error': str(e)
+            'error': str(e),
+            'progress': {
+                'is_complete': 'false',
+                'failed_batches': 0
+            }
         }
 
 def monitor_processing_health(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

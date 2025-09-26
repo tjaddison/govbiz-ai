@@ -1,5 +1,6 @@
 import json
 import boto3
+from boto3.dynamodb.conditions import Attr
 import os
 from typing import Dict, Any
 import logging
@@ -46,6 +47,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return handle_update_company_profile(company_id, body)
         elif http_method == 'POST' and path.endswith('/scrape-website'):
             return handle_scrape_website(company_id, body)
+        elif http_method == 'POST' and path.endswith('/refresh-embeddings'):
+            return handle_refresh_embeddings(company_id)
         else:
             return create_error_response(405, 'METHOD_NOT_ALLOWED', 'Method not allowed')
 
@@ -238,6 +241,81 @@ def handle_scrape_website(company_id: str, body: Dict[str, Any]) -> Dict[str, An
     except Exception as e:
         logger.error(f"Error initiating website scraping: {str(e)}")
         return create_error_response(500, 'SCRAPING_FAILED', 'Failed to initiate website scraping')
+
+def handle_refresh_embeddings(company_id: str) -> Dict[str, Any]:
+    """Trigger company embeddings refresh"""
+    try:
+        # Get company documents count - handle case where documents table is actually user profiles table
+        processed_documents = 0
+        documents_table_name = os.environ.get('DOCUMENTS_TABLE')
+
+        if documents_table_name:
+            try:
+                documents_table = dynamodb.Table(documents_table_name)
+
+                # Try to scan for documents with company_id field
+                # This might fail if the table doesn't have this field structure
+                response = documents_table.scan(
+                    FilterExpression=Attr('company_id').eq(company_id)
+                )
+                documents = response.get('Items', [])
+                processed_documents = len(documents)
+                logger.info(f"Found {processed_documents} documents for company {company_id}")
+
+            except Exception as scan_error:
+                logger.warning(f"Could not scan documents table {documents_table_name}: {str(scan_error)}. Using default count.")
+                processed_documents = 0
+        else:
+            logger.warning("DOCUMENTS_TABLE environment variable not set")
+
+        # Send message to profile embedding queue to refresh embeddings
+        embedding_queue_url = os.environ.get('PROFILE_EMBEDDING_QUEUE_URL')
+        if embedding_queue_url:
+            sqs = boto3.client('sqs')
+
+            message_body = {
+                'action': 'refresh_all_embeddings',
+                'company_id': company_id,
+                'timestamp': datetime.utcnow().isoformat() + 'Z',
+                'force_refresh': True
+            }
+
+            sqs.send_message(
+                QueueUrl=embedding_queue_url,
+                MessageBody=json.dumps(message_body)
+            )
+
+            logger.info(f"Embeddings refresh message sent to queue for company: {company_id}")
+        else:
+            logger.warning("PROFILE_EMBEDDING_QUEUE_URL not configured, cannot trigger embeddings refresh")
+
+        # Update company profile to track refresh request
+        companies_table = dynamodb.Table(COMPANIES_TABLE_NAME)
+        companies_table.update_item(
+            Key={'company_id': company_id},
+            UpdateExpression="SET embeddings_refresh_status = :status, embeddings_refresh_initiated_at = :initiated_at, updated_at = :updated_at",
+            ExpressionAttributeValues={
+                ':status': 'initiated',
+                ':initiated_at': datetime.utcnow().isoformat() + 'Z',
+                ':updated_at': datetime.utcnow().isoformat() + 'Z'
+            }
+        )
+
+        return {
+            'statusCode': 200,
+            'headers': get_cors_headers(),
+            'body': json.dumps({
+                'success': True,
+                'data': {
+                    'message': 'Company embeddings refresh initiated',
+                    'processed_documents': processed_documents
+                }
+            })
+        }
+
+    except Exception as e:
+        logger.error(f"Error refreshing company embeddings: {str(e)}")
+        return create_error_response(500, 'REFRESH_FAILED', 'Failed to refresh company embeddings')
 
 def trigger_profile_reprocessing(company_id: str):
     """Trigger company profile re-processing for embeddings"""

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 import logging
 import math
+from decimal import Decimal
 
 # Configure logging
 logger = logging.getLogger()
@@ -182,7 +183,7 @@ def initialize_coordination(
             'created_at': datetime.utcnow().isoformat(),
             'updated_at': datetime.utcnow().isoformat(),
             'ttl': int((datetime.utcnow() + timedelta(days=7)).timestamp()),
-            'progress_percentage': 0.0,
+            'progress_percentage': Decimal('0.0'),
             'estimated_completion': None,
             'actual_completion': None,
             'processing_errors': []
@@ -317,7 +318,7 @@ def check_batch_progress(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         completed_batches = coordination_record['completed_batches']
         failed_batches = coordination_record['failed_batches']
 
-        progress_percentage = (completed_batches / total_batches * 100) if total_batches > 0 else 0
+        progress_percentage = Decimal(str(completed_batches / total_batches * 100)) if total_batches > 0 else Decimal('0')
 
         # Check if processing is complete
         is_complete = (completed_batches + failed_batches) >= total_batches

@@ -24,6 +24,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import hashlib
+from decimal import Decimal
 
 # Configure logging
 logger = logging.getLogger()
@@ -65,6 +66,18 @@ COMPONENT_FUNCTIONS = {
 
 # Quick filter function
 QUICK_FILTER_FUNCTION = 'govbizai-quick-filter'
+
+
+def convert_floats_to_decimal(obj):
+    """Recursively convert float values to Decimal for DynamoDB compatibility"""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {key: convert_floats_to_decimal(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats_to_decimal(item) for item in obj]
+    else:
+        return obj
 
 
 @dataclass
@@ -560,6 +573,9 @@ class MatchOrchestrator:
                 'created_at': int(time.time()),
                 'updated_at': int(time.time())
             }
+
+            # Convert all float values to Decimal for DynamoDB compatibility
+            item = convert_floats_to_decimal(item)
 
             # Store in matches table
             self.matches_table.put_item(Item=item)

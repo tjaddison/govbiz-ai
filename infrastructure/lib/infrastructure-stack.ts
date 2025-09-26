@@ -44,6 +44,7 @@ export class InfrastructureStack extends cdk.Stack {
   // public connectionsTable: dynamodb.Table;
   public readonly kmsKey: kms.Key;
   public enhancedProcessingStateMachine: stepfunctions.StateMachine;
+  public batchMatchingStateMachine: stepfunctions.StateMachine;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -497,8 +498,8 @@ export class InfrastructureStack extends cdk.Stack {
     // 12. Create Phase 6: Company Profile Management Functions
     this.createCompanyProfileManagementFunctions();
 
-    // 13. Create Phase 7: Matching Engine Functions
-    this.createMatchingEngineFunctions();
+    // 13. Create Phase 7: Matching Engine Functions and Batch Orchestration
+    this.createBatchOrchestrationComponents();
 
     // 14. Create Phase 10: API Gateway Infrastructure
     // Moved to separate ApiStack to avoid CloudFormation resource limits
@@ -2653,6 +2654,10 @@ export class InfrastructureStack extends cdk.Stack {
       batchCoordinationQueue
     );
 
+    // Create matching engine components and batch matching state machine
+    const matchingEngineComponents = this.createMatchingEngineComponents();
+    this.batchMatchingStateMachine = matchingEngineComponents.batchMatchingStateMachine;
+
     // Create EventBridge rules for enhanced batch processing
     const enhancedNightlyRule = new events.Rule(this, 'govbizai-enhanced-nightly-processing-rule', {
       ruleName: 'govbizai-enhanced-nightly-processing-rule',
@@ -2672,6 +2677,30 @@ export class InfrastructureStack extends cdk.Stack {
         processing_type: 'nightly_batch',
         enable_optimization: true,
         enable_progress_tracking: true,
+      }),
+    }));
+
+    // Create EventBridge rule for nightly batch matching (for all companies)
+    const batchMatchingRule = new events.Rule(this, 'govbizai-nightly-batch-matching-rule', {
+      ruleName: 'govbizai-nightly-batch-matching-rule',
+      description: 'Nightly batch matching processing at 3:00 AM EST (after opportunity processing)',
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '8', // 3:00 AM EST = 8:00 AM UTC (1 hour after opportunity processing)
+        day: '*',
+        month: '*',
+        year: '*',
+      }),
+      enabled: true,
+    });
+
+    // Note: For production, this would need to iterate through all companies
+    // For now, we'll trigger with a placeholder company_id that the state machine can handle
+    batchMatchingRule.addTarget(new targets.SfnStateMachine(this.batchMatchingStateMachine, {
+      input: events.RuleTargetInput.fromObject({
+        company_id: 'NIGHTLY_ALL_COMPANIES', // Special value indicating process all companies
+        processing_type: 'nightly_matching',
+        force_refresh: true,
       }),
     }));
 
@@ -2761,6 +2790,12 @@ export class InfrastructureStack extends cdk.Stack {
       value: this.enhancedProcessingStateMachine.stateMachineArn,
       description: 'ARN of the Enhanced Processing Step Functions State Machine',
       exportName: 'govbizai-enhanced-processing-state-machine-arn',
+    });
+
+    new cdk.CfnOutput(this, 'BatchMatchingStateMachineArn', {
+      value: this.batchMatchingStateMachine.stateMachineArn,
+      description: 'ARN of the Batch Matching Step Functions State Machine',
+      exportName: 'govbizai-batch-matching-state-machine-arn',
     });
 
     new cdk.CfnOutput(this, 'BatchCoordinationQueueUrl', {
@@ -2877,6 +2912,323 @@ export class InfrastructureStack extends cdk.Stack {
     });
 
     return enhancedStateMachine;
+  }
+
+  private createMatchingEngineComponents(): {
+    matchOrchestratorFunction: lambda.Function;
+    batchMatchingStateMachine: stepfunctions.StateMachine;
+  } {
+    // Create Lambda layer for matching engine dependencies
+    const matchingEngineLayer = new lambda.LayerVersion(this, 'govbizai-matching-engine-layer-batch', {
+      layerVersionName: 'govbizai-matching-engine-layer-batch',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-layers/matching-engine')),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Matching engine dependencies including numpy, scipy, scikit-learn',
+    });
+
+    // Create cache table for match results
+    const matchCacheTable = new dynamodb.Table(this, 'govbizai-match-cache-batch', {
+      tableName: 'govbizai-match-cache-batch',
+      partitionKey: {
+        name: 'cache_key',
+        type: dynamodb.AttributeType.STRING
+      },
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: this.kmsKey,
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true
+      },
+      timeToLiveAttribute: 'ttl',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Common properties for matching engine functions
+    const matchingFunctionProps = {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        MATCHES_TABLE: this.matchesTable.tableName,
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+        COMPANIES_TABLE: this.companiesTable.tableName,
+        CACHE_TABLE: matchCacheTable.tableName,
+        EMBEDDINGS_BUCKET: this.embeddingsBucket.bucketName,
+      },
+      layers: [matchingEngineLayer],
+    };
+
+    // 1. Match Orchestrator - coordinates all 8 scoring components
+    const matchOrchestratorFunction = new lambda.Function(this, 'govbizai-match-orchestrator', {
+      functionName: 'govbizai-match-orchestrator',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/match-orchestrator')),
+      handler: 'handler.lambda_handler',
+      description: 'Orchestrates the complete matching process with 8 scoring components',
+      ...matchingFunctionProps,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 1536,
+    });
+
+    // 2. Quick Filter
+    const quickFilterFunction = new lambda.Function(this, 'govbizai-quick-filter', {
+      functionName: 'govbizai-quick-filter',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/quick-filter')),
+      handler: 'handler.lambda_handler',
+      description: 'Pre-screening filter for potential matches',
+      ...matchingFunctionProps,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+    });
+
+    // 3. Semantic Similarity
+    const semanticSimilarityFunction = new lambda.Function(this, 'govbizai-semantic-similarity', {
+      functionName: 'govbizai-semantic-similarity',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/semantic-similarity')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate semantic similarity between opportunity and company',
+      ...matchingFunctionProps,
+    });
+
+    // 4. Keyword Matching
+    const keywordMatchingFunction = new lambda.Function(this, 'govbizai-keyword-matching', {
+      functionName: 'govbizai-keyword-matching',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/keyword-matching')),
+      handler: 'handler.lambda_handler',
+      description: 'Perform keyword-based matching analysis',
+      ...matchingFunctionProps,
+    });
+
+    // 5. NAICS Alignment
+    const naicsAlignmentFunction = new lambda.Function(this, 'govbizai-naics-alignment', {
+      functionName: 'govbizai-naics-alignment',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/naics-alignment')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate NAICS code alignment score',
+      ...matchingFunctionProps,
+    });
+
+    // 6. Past Performance
+    const pastPerformanceFunction = new lambda.Function(this, 'govbizai-past-performance', {
+      functionName: 'govbizai-past-performance',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/past-performance')),
+      handler: 'handler.lambda_handler',
+      description: 'Analyze past performance relevance',
+      ...matchingFunctionProps,
+    });
+
+    // 7. Certification Bonus
+    const certificationBonusFunction = new lambda.Function(this, 'govbizai-certification-bonus', {
+      functionName: 'govbizai-certification-bonus',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/certification-bonus')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate certification and set-aside bonuses',
+      ...matchingFunctionProps,
+    });
+
+    // 8. Geographic Match
+    const geographicMatchFunction = new lambda.Function(this, 'govbizai-geographic-match', {
+      functionName: 'govbizai-geographic-match',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/geographic-match')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate geographic proximity score',
+      ...matchingFunctionProps,
+    });
+
+    // 9. Capacity Fit
+    const capacityFitFunction = new lambda.Function(this, 'govbizai-capacity-fit', {
+      functionName: 'govbizai-capacity-fit',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/capacity-fit')),
+      handler: 'handler.lambda_handler',
+      description: 'Assess company capacity vs. opportunity size',
+      ...matchingFunctionProps,
+    });
+
+    // 10. Recency Factor
+    const recencyFactorFunction = new lambda.Function(this, 'govbizai-recency-factor', {
+      functionName: 'govbizai-recency-factor',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/matching-engine/recency-factor')),
+      handler: 'handler.lambda_handler',
+      description: 'Calculate recency factor for past performance',
+      ...matchingFunctionProps,
+    });
+
+    // Grant permissions to all matching functions
+    const matchingFunctions = [
+      matchOrchestratorFunction,
+      quickFilterFunction,
+      semanticSimilarityFunction,
+      keywordMatchingFunction,
+      naicsAlignmentFunction,
+      pastPerformanceFunction,
+      certificationBonusFunction,
+      geographicMatchFunction,
+      capacityFitFunction,
+      recencyFactorFunction,
+    ];
+
+    matchingFunctions.forEach(func => {
+      // DynamoDB permissions
+      this.matchesTable.grantReadWriteData(func);
+      this.opportunitiesTable.grantReadData(func);
+      this.companiesTable.grantReadData(func);
+      matchCacheTable.grantReadWriteData(func);
+
+      // S3 permissions for embeddings
+      this.embeddingsBucket.grantRead(func);
+
+      // Bedrock permissions for AI functionality
+      func.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0`,
+        ],
+      }));
+
+      // Lambda invoke permissions for orchestrator to call components
+      if (func !== matchOrchestratorFunction) {
+        func.grantInvoke(matchOrchestratorFunction);
+      }
+    });
+
+    // Create Batch Matching State Machine
+    const batchMatchingStateMachine = this.createBatchMatchingStateMachine(
+      matchOrchestratorFunction,
+      quickFilterFunction
+    );
+
+    return {
+      matchOrchestratorFunction,
+      batchMatchingStateMachine,
+    };
+  }
+
+  private createBatchMatchingStateMachine(
+    matchOrchestrator: lambda.Function,
+    quickFilter: lambda.Function
+  ): stepfunctions.StateMachine {
+    // Create Lambda functions first
+    const getCompanyProfileFunction = new lambda.Function(this, 'govbizai-get-company-profile', {
+      functionName: 'govbizai-get-company-profile',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/get-company-profile')),
+      timeout: cdk.Duration.minutes(1),
+      environment: {
+        COMPANIES_TABLE: this.companiesTable.tableName,
+      },
+    });
+
+    const getOpportunitiesFunction = new lambda.Function(this, 'govbizai-get-all-opportunities', {
+      functionName: 'govbizai-get-all-opportunities',
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda/get-all-opportunities')),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        OPPORTUNITIES_TABLE: this.opportunitiesTable.tableName,
+      },
+    });
+
+    // Grant permissions to Lambda functions
+    this.companiesTable.grantReadData(getCompanyProfileFunction);
+    this.opportunitiesTable.grantReadData(getOpportunitiesFunction);
+    this.kmsKey.grantDecrypt(getCompanyProfileFunction);
+    this.kmsKey.grantDecrypt(getOpportunitiesFunction);
+
+    // Task: Get company profile
+    const getCompanyProfileTask = new stepfunctionsTasks.LambdaInvoke(this, 'Get Company Profile', {
+      lambdaFunction: getCompanyProfileFunction,
+      outputPath: '$.Payload',
+    });
+
+    // Task: Get all opportunities
+    const getOpportunitiesTask = new stepfunctionsTasks.LambdaInvoke(this, 'Get All Opportunities', {
+      lambdaFunction: getOpportunitiesFunction,
+      outputPath: '$.Payload',
+    });
+
+    // Map state to process each opportunity
+    const processOpportunityMap = new stepfunctions.Map(this, 'Process Each Opportunity', {
+      itemsPath: '$.opportunities',
+      maxConcurrency: 10,
+      parameters: {
+        'opportunity.$': '$$.Map.Item.Value',
+        'company_profile.$': '$.company_profile'
+      },
+    });
+
+    // Task within map: Calculate match for single opportunity
+    const calculateMatchTask = new stepfunctionsTasks.LambdaInvoke(this, 'Calculate Match', {
+      lambdaFunction: matchOrchestrator,
+      payload: stepfunctions.TaskInput.fromObject({
+        'opportunity.$': '$.opportunity',
+        'company_profile.$': '$.company_profile',
+        'use_cache': true
+      }),
+      outputPath: '$.Payload',
+    });
+
+    // Configure the map iteration
+    processOpportunityMap.iterator(calculateMatchTask);
+
+    // Success state
+    const completeState = new stepfunctions.Succeed(this, 'Batch Matching Complete', {
+      comment: 'All opportunities have been processed for matching'
+    });
+
+    // Failure state
+    const failureState = new stepfunctions.Fail(this, 'Batch Matching Failed', {
+      comment: 'Batch matching process failed'
+    });
+
+    // Chain the workflow
+    const definition = stepfunctions.Chain.start(getCompanyProfileTask)
+      .next(getOpportunitiesTask)
+      .next(processOpportunityMap)
+      .next(completeState);
+
+    // Add error handling
+    getCompanyProfileTask.addCatch(failureState, {
+      errors: ['States.ALL'],
+      resultPath: '$.error'
+    });
+
+    getOpportunitiesTask.addCatch(failureState, {
+      errors: ['States.ALL'],
+      resultPath: '$.error'
+    });
+
+    processOpportunityMap.addCatch(failureState, {
+      errors: ['States.ALL'],
+      resultPath: '$.error'
+    });
+
+    // Create the state machine
+    const batchMatchingStateMachine = new stepfunctions.StateMachine(this, 'govbizai-batch-matching-state-machine', {
+      stateMachineName: 'govbizai-batch-matching-state-machine',
+      definition: definition,
+      timeout: cdk.Duration.hours(2),
+      logs: {
+        destination: new logs.LogGroup(this, 'govbizai-batch-matching-logs', {
+          logGroupName: '/aws/stepfunctions/govbizai-batch-matching-state-machine',
+          retention: logs.RetentionDays.ONE_MONTH,
+        }),
+        level: stepfunctions.LogLevel.ALL,
+      },
+    });
+
+    // Grant permissions to the state machine
+    this.companiesTable.grantReadData(batchMatchingStateMachine);
+    this.opportunitiesTable.grantReadData(batchMatchingStateMachine);
+    this.matchesTable.grantReadWriteData(batchMatchingStateMachine);
+
+    return batchMatchingStateMachine;
   }
 
 // Create the stub method

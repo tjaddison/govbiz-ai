@@ -246,6 +246,19 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    const refreshEmbeddingsResource = companyResource.addResource('refresh-embeddings', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+    refreshEmbeddingsResource.addMethod('POST', new apigateway.LambdaIntegration(companyLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
     // Documents endpoints
     const documentsResource = apiResource.addResource('documents', {
       defaultCorsPreflightOptions: {
