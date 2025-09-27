@@ -31,6 +31,8 @@ import {
   Logout as LogoutIcon,
   Settings as SettingsIcon,
   ChevronLeft as ChevronLeftIcon,
+  AdminPanelSettings as AdminIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContextManaged';
 
@@ -76,6 +78,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { text: 'Matches', icon: <MatchIcon />, path: '/app/matches' },
     { text: 'Manual Matching', icon: <SettingsIcon />, path: '/app/matches/manual' },
     { text: 'Analytics', icon: <AnalyticsIcon />, path: '/app/analytics' },
+    { text: 'Weight Configuration', icon: <TuneIcon />, path: '/app/admin/weights' },
   ];
 
   const handleNavigation = (path: string) => {

@@ -61,6 +61,7 @@ new ApiStack(app, 'GovBizAIApiStack', {
   matchesTable: infraStack.matchesTable,
   feedbackTable: infraStack.feedbackTable,
   documentsTable: infraStack.userProfilesTable, // Using userProfiles table for document metadata
+  weightConfigTable: infraStack.weightConfigTable,
   documentsBucket: infraStack.rawDocumentsBucket,
   embeddingsBucket: infraStack.embeddingsBucket,
   kmsKey: infraStack.kmsKey,

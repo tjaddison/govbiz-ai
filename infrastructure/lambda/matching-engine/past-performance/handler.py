@@ -8,7 +8,17 @@ Full implementation would include semantic analysis of performance descriptions 
 
 import json
 import logging
-import time
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = Noneimport time
 from typing import Dict
 
 logger = logging.getLogger()

@@ -11,17 +11,31 @@ Key Features:
 - Acronym expansion and matching
 - Domain-specific term weighting (government contracting)
 - Optimized for sub-second performance
+- Dynamic weight configuration support
 """
 
 import json
 import boto3
 import re
 import logging
+import os
+import sys
 from typing import Dict, List, Tuple, Set, Optional
 from collections import Counter, defaultdict
 import math
 import time
 from concurrent.futures import ThreadPoolExecutor
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = None
 
 # Configure logging
 logger = logging.getLogger()
@@ -706,6 +720,20 @@ def lambda_handler(event, context):
         opportunity = event['opportunity']
         company_profile = event['company_profile']
 
+        # Extract tenant_id from company profile for configuration
+        tenant_id = company_profile.get('tenant_id')
+
+        # Get dynamic weight from configuration
+        if ConfigurationClient:
+            try:
+                config_client = ConfigurationClient()
+                weight = config_client.get_weight_for_component('keyword_matching', tenant_id)
+            except Exception as e:
+                logger.warning(f"Failed to get dynamic weight, using default: {str(e)}")
+                weight = 0.15
+        else:
+            weight = 0.15
+
         # Calculate keyword matching score
         keyword_result = keyword_matcher.calculate_keyword_score(
             opportunity, company_profile
@@ -717,7 +745,7 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'keyword_score': keyword_result,
                 'component': 'keyword_matching',
-                'weight': 0.15,
+                'weight': weight,
                 'timestamp': int(time.time())
             })
         }

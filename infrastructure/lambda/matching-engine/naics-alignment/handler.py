@@ -16,7 +16,17 @@ Key Features:
 import json
 import boto3
 import logging
-from typing import Dict, List, Tuple, Set, Optional
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = Nonefrom typing import Dict, List, Tuple, Set, Optional
 import time
 
 # Configure logging
@@ -896,13 +906,27 @@ def lambda_handler(event, context):
             opportunity, company_profile
         )
 
+        # Extract tenant_id from company profile for configuration
+        tenant_id = company_profile.get('tenant_id')
+
+        # Get dynamic weight from configuration
+        if ConfigurationClient:
+            try:
+                config_client = ConfigurationClient()
+                weight = config_client.get_weight_for_component('naics_alignment', tenant_id)
+            except Exception as e:
+                logger.warning(f"Failed to get dynamic weight, using default: {str(e)}")
+                weight = 0.15
+        else:
+            weight = 0.15
+
         # Return successful response
         return {
             'statusCode': 200,
             'body': json.dumps({
                 'naics_score': naics_result,
                 'component': 'naics_alignment',
-                'weight': 0.15,
+                'weight': weight,
                 'timestamp': int(time.time())
             })
         }

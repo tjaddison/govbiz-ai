@@ -5,7 +5,17 @@ Phase 7: Matching Engine - Stub Implementation
 
 import json
 import logging
-import time
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = Noneimport time
 from datetime import datetime
 
 logger = logging.getLogger()
@@ -49,7 +59,7 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'recency_score': result,
                 'component': 'recency_factor',
-                'weight': 0.05,
+                'weight': weight,
                 'timestamp': int(time.time())
             })
         }

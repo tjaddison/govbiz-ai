@@ -19,6 +19,7 @@ export interface ApiStackProps extends cdk.StackProps {
   matchesTable: dynamodb.Table;
   feedbackTable: dynamodb.Table;
   documentsTable: dynamodb.Table;
+  weightConfigTable: dynamodb.Table;
   documentsBucket: s3.Bucket;
   embeddingsBucket: s3.Bucket;
   kmsKey: kms.Key;
@@ -89,6 +90,7 @@ export class ApiStack extends cdk.Stack {
     const matchesLambda = this.createLambdaFunction('matches', props);
     const feedbackLambda = this.createLambdaFunction('feedback', props);
     const analyticsLambda = this.createLambdaFunction('analytics', props);
+    const weightConfigLambda = this.createLambdaFunction('weight-config', props);
 
     // Grant KMS permissions to documents Lambda for presigned URL encryption
     props.kmsKey.grantEncryptDecrypt(documentsLambda);
@@ -96,7 +98,7 @@ export class ApiStack extends cdk.Stack {
     // Create API resources and methods
     this.createApiEndpoints(authLambda, companyLambda, documentsLambda,
                            opportunitiesLambda, matchesLambda, feedbackLambda,
-                           analyticsLambda, apiAuthorizer);
+                           analyticsLambda, weightConfigLambda, apiAuthorizer);
 
     // Configure Gateway Responses for CORS
     this.configureGatewayResponses();
@@ -130,6 +132,7 @@ export class ApiStack extends cdk.Stack {
         MATCHES_TABLE: props.matchesTable.tableName,
         FEEDBACK_TABLE: props.feedbackTable.tableName,
         DOCUMENTS_TABLE: props.documentsTable.tableName,
+        CONFIG_TABLE: props.weightConfigTable.tableName,
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
         EMBEDDINGS_BUCKET: props.embeddingsBucket.bucketName,
         TENANTS_TABLE_NAME: props.companiesTable.tableName, // Using companies table for tenant data
@@ -147,6 +150,7 @@ export class ApiStack extends cdk.Stack {
     props.matchesTable.grantReadWriteData(lambdaFunction);
     props.feedbackTable.grantReadWriteData(lambdaFunction);
     props.documentsTable.grantReadWriteData(lambdaFunction);
+    props.weightConfigTable.grantReadWriteData(lambdaFunction);
     props.documentsBucket.grantReadWrite(lambdaFunction);
     props.embeddingsBucket.grantReadWrite(lambdaFunction);
 
@@ -205,6 +209,7 @@ export class ApiStack extends cdk.Stack {
     matchesLambda: lambda.Function,
     feedbackLambda: lambda.Function,
     analyticsLambda: lambda.Function,
+    weightConfigLambda: lambda.Function,
     authorizer: apigateway.CognitoUserPoolsAuthorizer
   ): void {
     // Authentication endpoints (no auth required)
@@ -416,6 +421,79 @@ export class ApiStack extends cdk.Stack {
 
     const trendsResource = analyticsResource.addResource('trends');
     trendsResource.addMethod('GET', new apigateway.LambdaIntegration(analyticsLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Weight Configuration endpoints (Admin only)
+    const configResource = apiResource.addResource('config', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+
+    const weightsResource = configResource.addResource('weights', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+
+    // GET /api/config/weights - Get current configuration
+    weightsResource.addMethod('GET', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // POST /api/config/weights - Update configuration
+    weightsResource.addMethod('POST', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // PUT /api/config/weights - Replace entire configuration
+    weightsResource.addMethod('PUT', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // DELETE /api/config/weights - Reset to defaults
+    weightsResource.addMethod('DELETE', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    // Tenant-specific configuration endpoints
+    const tenantWeightsResource = weightsResource.addResource('{tenant_id}', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
+        allowCredentials: false,
+      },
+    });
+
+    tenantWeightsResource.addMethod('GET', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    tenantWeightsResource.addMethod('POST', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    tenantWeightsResource.addMethod('PUT', new apigateway.LambdaIntegration(weightConfigLambda), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
+    tenantWeightsResource.addMethod('DELETE', new apigateway.LambdaIntegration(weightConfigLambda), {
       authorizer,
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });

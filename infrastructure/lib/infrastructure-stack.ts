@@ -35,6 +35,7 @@ export class InfrastructureStack extends cdk.Stack {
   public readonly auditLogTable: dynamodb.Table;
   public readonly feedbackTable: dynamodb.Table;
   public readonly tenantsTable: dynamodb.Table;
+  public readonly weightConfigTable: dynamodb.Table;
   public userPool: cognito.UserPool;
   public userPoolClient: cognito.UserPoolClient;
   public identityPool: cognito.CfnIdentityPool;
@@ -457,6 +458,34 @@ export class InfrastructureStack extends cdk.Stack {
       },
       sortKey: {
         name: 'created_at',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
+    // Weight Configuration Table - For dynamic matching algorithm configuration
+    this.weightConfigTable = new dynamodb.Table(this, 'govbizai-weight-configuration', {
+      tableName: 'govbizai-weight-configuration',
+      partitionKey: {
+        name: 'config_key',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: dynamodb.AttributeType.STRING
+      },
+      ...dynamoDbProps,
+      timeToLiveAttribute: 'ttl', // For automatic cleanup of old configurations
+    });
+
+    // Add GSI for weight configuration table
+    this.weightConfigTable.addGlobalSecondaryIndex({
+      indexName: 'config-type-index',
+      partitionKey: {
+        name: 'config_type',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'timestamp',
         type: dynamodb.AttributeType.STRING
       }
     });

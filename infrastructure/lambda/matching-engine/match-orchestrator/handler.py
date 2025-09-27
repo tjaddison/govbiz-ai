@@ -11,6 +11,7 @@ Key Features:
 - Handles concurrent component execution
 - Generates match explanations and recommendations
 - Maintains <100ms performance target per comparison
+- Dynamic weight and confidence level configuration support
 """
 
 import json
@@ -19,12 +20,24 @@ from boto3.dynamodb.conditions import Key
 import asyncio
 import logging
 import os
+import sys
 from typing import Dict, List, Tuple, Optional
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import hashlib
 from decimal import Decimal
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = None
 
 # Configure logging
 logger = logging.getLogger()
@@ -296,14 +309,28 @@ class MatchOrchestrator:
             logger.error(f"Error calculating weighted score: {str(e)}")
             return 0.0
 
-    def _calculate_confidence_level(self, total_score: float, component_scores: Dict) -> str:
+    def _calculate_confidence_level(self, total_score: float, component_scores: Dict, tenant_id: Optional[str] = None) -> str:
         """Calculate confidence level based on total score and component consistency"""
         try:
-            if total_score >= 0.75:
+            # Get dynamic confidence level thresholds
+            if ConfigurationClient:
+                try:
+                    config_client = ConfigurationClient()
+                    levels = config_client.get_confidence_levels(tenant_id)
+                    high_threshold = levels['high_threshold']
+                    medium_threshold = levels['medium_threshold']
+                    low_threshold = levels['low_threshold']
+                except Exception as e:
+                    logger.warning(f"Failed to get dynamic confidence levels, using defaults: {str(e)}")
+                    high_threshold, medium_threshold, low_threshold = 0.75, 0.50, 0.25
+            else:
+                high_threshold, medium_threshold, low_threshold = 0.75, 0.50, 0.25
+
+            if total_score >= high_threshold:
                 base_confidence = 'HIGH'
-            elif total_score >= 0.50:
+            elif total_score >= medium_threshold:
                 base_confidence = 'MEDIUM'
-            elif total_score >= 0.25:
+            elif total_score >= low_threshold:
                 base_confidence = 'LOW'
             else:
                 return 'NO_MATCH'

@@ -10,6 +10,7 @@ Key Features:
 - Optimized vector operations using numpy
 - Cached embedding retrieval from S3
 - Sub-second response times for real-time matching
+- Dynamic weight configuration support
 """
 
 import json
@@ -17,11 +18,23 @@ import boto3
 import math
 import logging
 import os
+import sys
 from typing import Dict, List, Tuple, Optional, Union
 from botocore.exceptions import ClientError
 import hashlib
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Add the config management directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'config-management'))
+
+try:
+    from config_client import ConfigurationClient
+except ImportError:
+    # Fallback if config client is not available
+    logger = logging.getLogger()
+    logger.warning("Configuration client not available, using default weights")
+    ConfigurationClient = None
 
 # Configure logging
 logger = logging.getLogger()
@@ -650,6 +663,20 @@ def lambda_handler(event, context):
         opportunity = event['opportunity']
         company_profile = event['company_profile']
 
+        # Extract tenant_id from company profile for configuration
+        tenant_id = company_profile.get('tenant_id')
+
+        # Get dynamic weight from configuration
+        if ConfigurationClient:
+            try:
+                config_client = ConfigurationClient()
+                weight = config_client.get_weight_for_component('semantic_similarity', tenant_id)
+            except Exception as e:
+                logger.warning(f"Failed to get dynamic weight, using default: {str(e)}")
+                weight = 0.25
+        else:
+            weight = 0.25
+
         # Calculate semantic similarity
         similarity_result = semantic_calculator.calculate_similarity_score(
             opportunity, company_profile
@@ -661,7 +688,7 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'similarity_score': similarity_result,
                 'component': 'semantic_similarity',
-                'weight': 0.25,
+                'weight': weight,
                 'timestamp': int(time.time())
             })
         }

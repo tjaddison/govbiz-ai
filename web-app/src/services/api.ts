@@ -557,6 +557,33 @@ class APIService {
   }
 
   // WebSocket for real-time updates
+  // Weight Configuration API
+  async getWeightConfiguration(tenantId?: string): Promise<any> {
+    const endpoint = tenantId ? `/api/config/weights/${tenantId}` : '/api/config/weights';
+    const response = await this.api.get<any>(endpoint);
+    return response.data.configuration;
+  }
+
+  async updateWeightConfiguration(config: any, tenantId?: string): Promise<any> {
+    const endpoint = tenantId ? `/api/config/weights/${tenantId}` : '/api/config/weights';
+    const response = await this.api.post<any>(endpoint, config);
+    return response.data;
+  }
+
+  async getWeightConfigurationHistory(tenantId?: string, limit: number = 20): Promise<any[]> {
+    const endpoint = tenantId
+      ? `/api/config/weights/${tenantId}?history=true&limit=${limit}`
+      : `/api/config/weights?history=true&limit=${limit}`;
+    const response = await this.api.get<any>(endpoint);
+    return response.data.history;
+  }
+
+  async resetWeightConfiguration(tenantId?: string): Promise<any> {
+    const endpoint = tenantId ? `/api/config/weights/${tenantId}` : '/api/config/weights';
+    const response = await this.api.delete<any>(endpoint);
+    return response.data;
+  }
+
   connectWebSocket(): WebSocket {
     const wsUrl = process.env.REACT_APP_API_BASE_URL?.replace('https://', 'wss://').replace('http://', 'ws://');
     const ws = new WebSocket(`${wsUrl}/ws`);

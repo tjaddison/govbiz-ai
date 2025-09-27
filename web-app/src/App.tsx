@@ -20,6 +20,7 @@ import Matches from './pages/matches/Matches';
 import MatchDetail from './pages/matches/MatchDetail';
 import Analytics from './pages/Analytics';
 import ManualMatching from './components/ManualMatching';
+import WeightConfiguration from './pages/admin/WeightConfiguration';
 import './App.css';
 
 const theme = createTheme({
@@ -172,6 +173,9 @@ const App: React.FC = () => {
 
                         {/* Analytics */}
                         <Route path="/analytics" element={<Analytics />} />
+
+                        {/* Admin routes */}
+                        <Route path="/admin/weights" element={<WeightConfiguration />} />
 
                         {/* Fallback */}
                         <Route path="*" element={<Navigate to="/app/dashboard" replace />} />
